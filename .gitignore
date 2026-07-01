@@ -1,0 +1,22 @@
+# Node modules
+node_modules/
+
+# Environment files
+.env
+
+# Build
+dist/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db 
+__pycache__/
+*.pyc
+.pytest_cache/
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3

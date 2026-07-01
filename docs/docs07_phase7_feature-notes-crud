@@ -1,0 +1,96 @@
+# Phase 7: Notes CRUD & Knowledge Base Foundation
+
+## Objective
+
+Replace mock note data with a real database-backed Notes Management System.
+
+This phase establishes the foundation for the upcoming Information Retrieval (IR) module by allowing students to create, manage, and store study notes permanently.
+
+---
+
+## Features Implemented
+
+### Notes Management
+
+* Create Notes
+* View Notes
+* Edit Notes
+* Delete Notes
+
+### Database Integration
+
+* SQLite Notes Table
+* User-specific note ownership
+* Persistent storage
+* Timestamp tracking
+
+### Authentication Integration
+
+* Only authenticated users can access notes
+* Users can only manage their own notes
+
+---
+
+## Database Schema
+
+Table: notes
+
+Fields:
+
+* id
+* user_id
+* title
+* content
+* created_at
+* updated_at
+
+---
+
+## API Endpoints
+
+POST /notes
+GET /notes
+GET /notes/{id}
+PUT /notes/{id}
+DELETE /notes/{id}
+
+---
+
+## Frontend Features
+
+### Notes Dashboard
+
+* Notes List
+* Create Note Form
+* Edit Note Form
+* Delete Confirmation
+
+---
+
+## Mock Data Removal
+
+Previous Source:
+
+INITIAL_NOTES (mockData.js)
+
+New Source:
+
+SQLite Database via FastAPI APIs
+
+---
+
+## Why This Phase Matters
+
+The Information Retrieval module requires real user-generated study material.
+
+Phase 7 provides the document repository that will later be used for:
+
+* Tokenization
+* Stopword Removal
+* Lemmatization
+* TF-IDF Vectorization
+* Inverted Index Creation
+* Cosine Similarity Search
+* Document Ranking
+
+This phase serves as the bridge between the application infrastructure and the upcoming IR engine.
