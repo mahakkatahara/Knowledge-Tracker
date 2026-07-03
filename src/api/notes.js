@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8000/api/notes";
+const BASE_URL = "https://knowledge-tracker-a7d6.onrender.com";
 
 /**
  * Helper to construct authentication and content-type headers.

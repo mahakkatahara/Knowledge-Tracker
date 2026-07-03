@@ -33,11 +33,16 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await fetch(
+  "https://knowledge-tracker-a7d6.onrender.com/api/auth/login",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
+  }
+);
       const data = await response.json();
       if (response.ok) {
         setSuccess("Login successful! Redirecting...");
