@@ -3,7 +3,7 @@ import logging
 import sqlite3
 import os
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import Optional
 from backend.config import CHUNK_SIZE, CHUNK_OVERLAP, UPLOAD_DIR
 from backend.database.crud import document as crud_doc
 from backend.database.models import DBDocument, DocumentStatus

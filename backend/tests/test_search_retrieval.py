@@ -1,23 +1,17 @@
 import os
 import tempfile
 import shutil
-import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 import numpy as np
-import faiss
 
 from backend.api.main import app
 from backend.api.auth_routes import get_db
 from backend.database.database import init_db, get_db_connection
-from backend.database.models import DocumentStatus
-from backend.database.crud import document as crud_doc
-from backend.services.search.embedder import EmbeddingService
 from backend.services.search.indexer import FAISSIndexManager
 from backend.services.search.manager import SearchManager
 from backend.services.search.retriever import SearchService
-from backend.api.schemas.search import SemanticSearchResponse
 
 @pytest.fixture(scope="function")
 def mock_semantic_transformer():
@@ -25,7 +19,7 @@ def mock_semantic_transformer():
     SentenceTransformer mock yielding distinct index coordinates for deterministic
     nearest neighbors test scenarios.
     """
-    with patch("backend.services.search.embedder.SentenceTransformer") as mock_class:
+    with patch("sentence_transformers.SentenceTransformer") as mock_class:
         mock_model = MagicMock()
         mock_model.get_sentence_embedding_dimension.return_value = 384
         

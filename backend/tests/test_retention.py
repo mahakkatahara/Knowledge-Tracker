@@ -1,5 +1,4 @@
 from backend.analytics.retention import calculate_retention
-from backend.analytics.utils import get_days_elapsed
 
 def test_calculate_retention_spec_compatibility():
     """

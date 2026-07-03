@@ -1,9 +1,7 @@
 import os
 import time
 import tempfile
-import sqlite3
 import numpy as np
-import faiss
 from fastapi.testclient import TestClient
 
 # Adjust path so backend is importable

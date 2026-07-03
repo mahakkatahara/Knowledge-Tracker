@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 import sqlite3
-from typing import Optional
 
 from backend.api.auth_routes import get_db
 from backend.api.routes.notes import get_current_user

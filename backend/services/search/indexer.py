@@ -1,8 +1,6 @@
 import os
 import logging
 from typing import List
-import faiss
-import numpy as np
 from backend.config import FAISS_INDEX_PATH
 from backend.services.search.embedder import EmbeddingService
 
@@ -31,6 +29,7 @@ class FAISSIndexManager:
         """
         Loads the index from disk or creates a new one if it does not exist.
         """
+        import faiss
         if os.path.exists(self.index_path):
             try:
                 logger.info("Loading existing FAISS index from %s", self.index_path)
@@ -42,10 +41,11 @@ class FAISSIndexManager:
             logger.info("FAISS index file not found. Creating a fresh index.")
             self.index = self._create_flat_ip_index()
 
-    def _create_flat_ip_index(self) -> faiss.IndexIDMap2:
+    def _create_flat_ip_index(self) -> "faiss.IndexIDMap2":
         """
         Constructs a new Flat Inner Product (cosine similarity) index wrapped in ID mapping.
         """
+        import faiss
         dimension = self._get_embedding_dimension()
         logger.info("Creating fresh IndexFlatIP index with dimension %s wrapped in IndexIDMap2", dimension)
         base_index = faiss.IndexFlatIP(dimension)
@@ -64,6 +64,8 @@ class FAISSIndexManager:
             raise ValueError("Size mismatch between chunk IDs and embeddings.")
 
         # Convert to float32 numpy array
+        import numpy as np
+        import faiss
         vectors_np = np.array(embeddings, dtype=np.float32)
         # Normalize vectors for Cosine Similarity (Inner Product of normalized vectors)
         faiss.normalize_L2(vectors_np)
@@ -82,6 +84,7 @@ class FAISSIndexManager:
         if not chunk_ids:
             return
         
+        import numpy as np
         ids_np = np.array(chunk_ids, dtype=np.int64)
         logger.info("Removing %s vectors from FAISS index", len(chunk_ids))
         self.index.remove_ids(ids_np)
@@ -97,6 +100,7 @@ class FAISSIndexManager:
             if dir_name:
                 os.makedirs(dir_name, exist_ok=True)
             logger.info("Saving FAISS index binary to %s", self.index_path)
+            import faiss
             faiss.write_index(self.index, self.index_path)
         except Exception as e:
             logger.error("Failed to persist FAISS index to disk: %s", str(e), exc_info=True)

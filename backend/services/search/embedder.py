@@ -1,6 +1,5 @@
 import logging
 from typing import List
-from sentence_transformers import SentenceTransformer
 from backend.config import EMBEDDING_MODEL_NAME
 
 logger = logging.getLogger(__name__)
@@ -18,13 +17,14 @@ class EmbeddingService:
             cls._instance = super(EmbeddingService, cls).__new__(cls, *args, **kwargs)
         return cls._instance
 
-    def get_model(self) -> SentenceTransformer:
+    def get_model(self) -> "SentenceTransformer":
         """
         Lazy-loads the embedding model on CPU.
         """
         if self._model is None:
             try:
                 logger.info("Initializing SentenceTransformer model: %s on CPU", EMBEDDING_MODEL_NAME)
+                from sentence_transformers import SentenceTransformer
                 # Force CPU device mapping as required
                 self._model = SentenceTransformer(EMBEDDING_MODEL_NAME, device="cpu")
             except Exception as e:

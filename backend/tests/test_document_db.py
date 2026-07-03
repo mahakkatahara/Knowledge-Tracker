@@ -3,7 +3,7 @@ import tempfile
 import sqlite3
 import pytest
 from backend.database.database import init_db, get_db_connection
-from backend.database.models import DBDocument, DBDocumentChunk, DocumentStatus
+from backend.database.models import DocumentStatus
 from backend.database.crud import document as crud_doc
 
 

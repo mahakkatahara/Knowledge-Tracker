@@ -3,7 +3,7 @@ import os
 import sqlite3
 import base64
 import hmac
-from typing import Optional, Dict, Any
+from typing import Optional
 from backend.database.models import DBUser
 
 

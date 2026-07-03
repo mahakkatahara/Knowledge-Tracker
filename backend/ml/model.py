@@ -1,4 +1,3 @@
-from datetime import datetime
 
 def calculate_risk_score(features: dict) -> dict:
     """

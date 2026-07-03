@@ -9,10 +9,5 @@ python-multipart
 sentence-transformers
 faiss-cpu
 numpy
-torch
 nltk
-sqlalchemy
-python-jose
-passlib
-bcrypt
-
+scikit-learn

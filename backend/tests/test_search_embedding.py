@@ -1,13 +1,12 @@
 import os
 import tempfile
-import sqlite3
 import pytest
 from unittest.mock import MagicMock, patch
 import numpy as np
 import faiss
 
 from backend.database.database import init_db, get_db_connection
-from backend.database.models import DBDocument, DBDocumentChunk, DocumentStatus
+from backend.database.models import DocumentStatus
 from backend.database.crud import document as crud_doc
 from backend.services.search.embedder import EmbeddingService
 from backend.services.search.indexer import FAISSIndexManager
@@ -19,7 +18,7 @@ def mock_transformer():
     Global mock for SentenceTransformer class to prevent network downloads of model weights.
     Returns 384-dimension dummy embeddings.
     """
-    with patch("backend.services.search.embedder.SentenceTransformer") as mock_class:
+    with patch("sentence_transformers.SentenceTransformer") as mock_class:
         mock_model = MagicMock()
         mock_model.get_sentence_embedding_dimension.return_value = 384
         

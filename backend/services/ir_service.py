@@ -1,8 +1,5 @@
 import sqlite3
-import numpy as np
 from typing import List, Dict, Any, Optional
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from backend.utils.text_processing import preprocess_text
 
 class UserIRIndex:
@@ -14,7 +11,7 @@ class UserIRIndex:
         self.user_id: int = user_id
         self.note_ids: List[int] = []
         self.note_titles: Dict[int, str] = {}
-        self.vectorizer: Optional[TfidfVectorizer] = None
+        self.vectorizer: Optional["TfidfVectorizer"] = None
         self.tfidf_matrix: Any = None
         self.inverted_index: Dict[str, List[int]] = {}  # term -> list of note_ids
 
@@ -79,6 +76,7 @@ def rebuild_user_index(db: sqlite3.Connection, user_id: int) -> UserIRIndex:
     # Ensure there is at least one non-empty document to avoid sklearn errors
     non_empty_docs = [doc for doc in documents if doc.strip()]
     if non_empty_docs:
+        from sklearn.feature_extraction.text import TfidfVectorizer
         index.vectorizer = TfidfVectorizer(use_idf=True, norm="l2")
         index.tfidf_matrix = index.vectorizer.fit_transform(documents)
         
@@ -124,6 +122,7 @@ def search_user_notes(db: sqlite3.Connection, user_id: int, query: str) -> List[
     query_vector = index.vectorizer.transform([processed_query])
     
     # Compute similarity against all document vectors
+    from sklearn.metrics.pairwise import cosine_similarity
     similarities = cosine_similarity(query_vector, index.tfidf_matrix).flatten()
     
     # 4. Map similarity scores and rank

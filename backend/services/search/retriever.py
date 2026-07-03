@@ -1,8 +1,6 @@
 import sqlite3
 import logging
 from typing import List, Dict, Any, Optional
-import numpy as np
-import faiss
 
 from backend.services.search.embedder import EmbeddingService
 from backend.services.search.indexer import FAISSIndexManager
@@ -45,6 +43,8 @@ class SearchService:
 
         # 1. Encode query to vector space on CPU and L2 normalize
         try:
+            import numpy as np
+            import faiss
             query_vector = self.embedder.embed_text(query)
             query_np = np.array([query_vector], dtype=np.float32)
             faiss.normalize_L2(query_np)

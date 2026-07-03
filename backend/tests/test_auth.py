@@ -1,7 +1,6 @@
 import pytest
 import os
 import tempfile
-import sqlite3
 from fastapi.testclient import TestClient
 from backend.api.main import app
 from backend.api.auth_routes import get_db

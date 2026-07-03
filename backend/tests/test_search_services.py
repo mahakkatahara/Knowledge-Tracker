@@ -86,7 +86,7 @@ def test_parser_unsupported_extension():
     assert "Unsupported file format" in str(exc.value)
 
 
-@patch("backend.services.search.parser.pypdf.PdfReader")
+@patch("pypdf.PdfReader")
 def test_parser_extract_text_pdf(mock_reader_cls):
     # Mocking pypdf PDF extraction behavior
     mock_page_1 = MagicMock()
@@ -155,7 +155,7 @@ def test_splitter_empty_and_null_files():
     assert processor.split_text_into_chunks("   \n   ", chunk_size=100, chunk_overlap=10) == []
 
 
-@patch("backend.services.search.parser.pypdf.PdfReader")
+@patch("pypdf.PdfReader")
 def test_parser_pdf_blank_pages(mock_reader_cls):
     # Setup PDF with blank pages or extractable text as None
     mock_page_1 = MagicMock()

@@ -1,8 +1,6 @@
 import io
 import logging
 from typing import List, Dict, Any
-import pypdf
-
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +11,7 @@ def extract_text_from_pdf(file_content: bytes) -> List[Dict[str, Any]]:
     """
     pages = []
     try:
+        import pypdf
         reader = pypdf.PdfReader(io.BytesIO(file_content))
         for page_idx, page in enumerate(reader.pages):
             page_num = page_idx + 1

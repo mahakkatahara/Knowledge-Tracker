@@ -1,13 +1,13 @@
 import logging
 import sqlite3
 import hashlib
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
 
 from backend.api.auth_routes import get_db
 from backend.services.search.manager import SearchManager
 from backend.database.crud import document as crud_doc
-from backend.database.models import DocumentStatus, DBUser
+from backend.database.models import DBUser
 from backend.api.routes.notes import get_optional_current_user
 from backend.config import MAX_UPLOAD_FILE_SIZE_MB
 from backend.api.schemas.documents import (
