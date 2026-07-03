@@ -5,7 +5,8 @@ import useLocalStorage from "../hooks/useLocalStorage";
 import { INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { calculateRetention, getForgetRisk } from "../utils/decayEngine";
+import { calculateRetention, getForgetRisk, localTodayISO } from "../utils/decayEngine";
+import { makeSession } from "../utils/sessionLog";
 import { extractTopicsFromPdf } from "../utils/pdfExtractor";
 import { AuthContext } from "../context/AuthContext";
 import { Reveal } from "../components/ui/Reveal";
@@ -16,7 +17,7 @@ const StudyTracker = () => {
   const { user } = useContext(AuthContext);
   const uid = user?.email || "guest";
   const [topics, setTopics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
-
+  const [, setSessions] = useLocalStorage(`kt_sessions::${uid}`, []);
   const studyLinks = (title) => {
     const t = encodeURIComponent(title.trim());
     return {
@@ -126,7 +127,7 @@ const StudyTracker = () => {
         return;
       }
     }
-    const today = new Date().toISOString().split("T")[0];
+    const today = localTodayISO();
     const existingKeys = new Set(topics.map((t) => normalizeTitle(t.title)));
     const seen = new Set();
     const built = pendingTopics
@@ -156,6 +157,7 @@ const StudyTracker = () => {
       return;
     }
     setTopics((prev) => [...built, ...prev]);
+    setSessions((prev) => [...prev, ...built.map((t) => makeSession(t.id, t.duration, today))]);
     setPendingTopics([]);
     setPendingFile("");
   };

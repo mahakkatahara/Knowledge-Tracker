@@ -10,8 +10,12 @@
 // "Today" — derived from the real system clock so every stat (days elapsed,
 // retention, streak, weekly hours, study-time-this-week) reflects actual dates,
 // not a frozen simulation date.
-export const REFERENCE_DATE = new Date().toISOString().split("T")[0];
+export const localTodayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
+export const REFERENCE_DATE = localTodayISO();
 /**
  * Calculates the calendar days elapsed between two dates.
  * Falls back to the current system date if referenceDate is not provided.
