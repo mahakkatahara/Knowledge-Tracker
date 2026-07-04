@@ -55,7 +55,40 @@ const GENERIC_WORDS = new Set([
   "process", "system", "method", "approach", "technique", "property", "operation",
   "function", "variable", "object", "instance", "reference", "parameter",
   "argument", "statement", "expression", "condition", "iteration", "default",
+  // umbrella / subject-level words that are the *theme* of a document,
+  // never a section topic on their own ("Data Structure", "Algorithm"...)
+  "structure", "algorithm", "program", "programming", "language", "code",
+  "computer", "science", "study", "learning", "course", "syllabus", "unit",
+  "module", "lecture", "important", "basic", "advanced", "type", "application",
 ]);
+
+// Common verbs seen in explanatory prose. A topic is a NOUN phrase — any
+// candidate containing one of these is a sentence fragment ("Stack Overflow
+// Occurs", "List Stores Nodes"), not a topic, so it is rejected outright.
+const PROSE_VERBS = new Set([
+  "occurs", "occur", "allows", "allow", "avoids", "avoid", "stores", "store",
+  "updates", "update", "includes", "include", "provides", "provide",
+  "requires", "require", "contains", "contain", "ensures", "ensure",
+  "means", "mean", "refers", "refer", "consists", "consist", "depends",
+  "depend", "becomes", "become", "remains", "remain", "involves", "involve",
+  "follows", "follow", "performs", "perform", "represents", "represent",
+  "defines", "define", "describes", "describe", "denotes", "denote",
+  "holds", "hold", "takes", "take", "gives", "give", "gets", "get",
+  "uses", "makes", "make", "needs", "need", "helps", "help", "shows", "show",
+  "works", "runs", "run", "calls", "call", "returns", "creates", "create",
+  "adds", "add", "removes", "remove", "deletes", "delete", "inserts",
+  "insert", "keeps", "keep", "visits", "visit", "compares", "compare",
+  "divides", "divide", "arranges", "arrange", "affects", "affect",
+  "operates", "operate", "picks", "pick", "supports", "support",
+  "enables", "enable", "offers", "offer", "known", "called", "explain",
+  "explains", "explained", "discuss", "discussed", "write", "written",
+  "converts", "convert", "absorbs", "absorb", "regulate", "regulates",
+  "fixes", "produce", "produces", "release", "releases", "controls",
+  "control", "transports", "transport", "packages", "package", "connects",
+  "connect", "swaps", "swap", "splits", "split", "merges", "merge",
+  "partitions", "partition", "maintains", "maintain", "fills", "fill",
+]);
+const hasProseVerb = (words) => words.some((w) => PROSE_VERBS.has(w));
 
 // Lightweight singular/plural stemmer — only to collapse duplicates.
 function stem(w) {
@@ -82,6 +115,7 @@ function isQualityTopic(words) {
   if (!words.length) return false;
   for (const w of words) {
     if (!looksWordLike(w)) return false;       // any garbled word kills it
+    if (PROSE_VERBS.has(w)) return false;      // verbs aren't topics ("Converts", "Absorbs")
   }
   const meaningful = words.filter((w) => w.length >= 3 && !GENERIC_WORDS.has(stem(w)));
   if (meaningful.length === 0) return false;   // all words generic -> drop
@@ -171,6 +205,42 @@ export function extractTopicsFromText(rawText, opts = {}) {
   const unigramTF = new Map();
   for (const w of content) unigramTF.set(w, (unigramTF.get(w) || 0) + 1);
 
+  // 1b. Burstiness analysis — the key to separating real *topics* from the
+  //     document's overall *theme*. Split the doc into fixed windows of
+  //     content words; a genuine topic (e.g. "stack", "queue") is
+  //     concentrated in a few windows, while theme words (e.g. "data",
+  //     "structure", "algorithm" in a DSA book) appear in almost every
+  //     window. Theme words are suppressed; bursty words are boosted (TF-IDF).
+  const WINDOW = 120;
+  const windows = [];
+  for (let i = 0; i < content.length; i += WINDOW) {
+    windows.push(new Set(content.slice(i, i + WINDOW).map(stem)));
+  }
+  const numChunks = windows.length;
+  const df = new Map(); // stem -> number of windows containing it
+  for (const set of windows) {
+    for (const s of set) df.set(s, (df.get(s) || 0) + 1);
+  }
+  const idfOf = (w) => {
+    const d = df.get(stem(w)) || 1;
+    return Math.log(1 + numChunks / d);
+  };
+  // A word is a "theme word" when the doc is long enough to judge (5+ windows)
+  // and the word shows up in 60%+ of them.
+  const isThemeWord = (w) =>
+    numChunks >= 5 && (df.get(stem(w)) || 0) / numChunks >= 0.6;
+  // A candidate is the doc's *subject* (not a topic) when theme/generic words
+  // form a strict majority of it. "Data Structure" / "Linear Data Structure"
+  // in a DSA doc -> rejected; "Data Mining" (1 of 2 bursty) -> kept.
+  const isThemeCandidate = (words) => {
+    const themey = words.filter(
+      (w) => isThemeWord(w) || GENERIC_WORDS.has(stem(w))
+    ).length;
+    return themey / words.length > 0.5;
+  };
+  const avgIdf = (words) =>
+    words.reduce((s, w) => s + idfOf(w), 0) / words.length;
+
   // 2. Bigram / trigram frequency over consecutive content words.
   //    Phrases are built *within* sentence/line segments so unrelated words
   //    either side of punctuation never merge (e.g. "...per node. Linked List"
@@ -219,9 +289,20 @@ export function extractTopicsFromText(rawText, opts = {}) {
   for (const [phrase, freq] of phraseTF.entries()) {
     if (freq < 2) continue; // must recur to count as a topic
     const words = phrase.split(" ");
+    if (isThemeCandidate(words)) continue; // "data structure" in a DSA doc = theme, not a topic
+    if (hasProseVerb(words)) continue; // "stack overflow occurs" = sentence fragment
+    // A truncated fragment like "Linear Data" (cut from "linear data
+    // structure") contains a generic/theme word. Real section topics that
+    // legitimately contain one ("Sorting Algorithms") appear as headings and
+    // are rescued below in the heading loop.
+    if (
+      !headingSet.has(phrase) &&
+      words.some((w) => isThemeWord(w) || GENERIC_WORDS.has(stem(w)))
+    )
+      continue;
     const wordScore = words.reduce((s, w) => s + (unigramTF.get(w) || 0), 0);
     const lengthBonus = 1 + (words.length - 1) * 0.4;
-    let score = freq * 3 * lengthBonus + wordScore * 0.2;
+    let score = (freq * 3 * lengthBonus + wordScore * 0.2) * avgIdf(words);
     if (headingSet.has(phrase)) score *= 1.8;
     addCandidate(phrase, titleCase(phrase), score, words);
   }
@@ -230,8 +311,9 @@ export function extractTopicsFromText(rawText, opts = {}) {
   for (const [norm, original] of headingSet.entries()) {
     if (candidates.has(norm)) continue;
     const words = norm.split(" ");
+    if (isThemeCandidate(words)) continue; // doc-title headings like "Data Structures"
     const wordScore = words.reduce((s, w) => s + (unigramTF.get(w) || 0), 0);
-    const score = 6 + wordScore * 0.5 + words.length;
+    const score = (6 + wordScore * 0.5 + words.length) * avgIdf(words);
     addCandidate(norm, titleCase(original.replace(/\s+/g, " ")), score, words);
   }
 
@@ -239,7 +321,8 @@ export function extractTopicsFromText(rawText, opts = {}) {
   const sortedUnigrams = [...unigramTF.entries()].sort((a, b) => b[1] - a[1]);
   for (const [word, freq] of sortedUnigrams.slice(0, 25)) {
     if (freq < 3) continue;
-    addCandidate(word, titleCase(word), freq * 1.0, [word]);
+    if (isThemeWord(word)) continue; // "algorithm" 200x in an algo book ≠ topic
+    addCandidate(word, titleCase(word), freq * idfOf(word), [word]);
   }
 
   // 5. Rank
@@ -260,7 +343,16 @@ export function extractTopicsFromText(rawText, opts = {}) {
     // Relaxed gate for very short docs: allow single-occurrence terms but STILL
     // require them to look like real words / non-generic. We never fall back to
     // the raw ranking, so garbled or phantom "topics" are not surfaced.
-    ranked = ranked.filter((c) => isQualityTopic(c.words));
+    // Extra guard: a lone single word (e.g. a stray verb like "Converts")
+    // only qualifies if it's an actual heading or recurs — multi-word phrases
+    // and headings are always allowed.
+    ranked = ranked.filter((c) => {
+      if (!isQualityTopic(c.words)) return false;
+      const norm = c.words.join(" ");
+      if (headingSet.has(norm)) return true; // real heading
+      if (c.words.length >= 2) return true; // a phrase reads like a topic
+      return support(c.words) >= 2; // lone word must recur
+    });
   }
 
   // 6. Greedy selection that suppresses near-duplicate / overlapping topics
@@ -282,13 +374,29 @@ export function extractTopicsFromText(rawText, opts = {}) {
   }
 
   if (chosen.length === 0) {
-    // fallback: take the top unigrams, but only genuinely word-like, non-generic
-    // ones — never raw gibberish just to fill the list.
-    for (const [word] of sortedUnigrams) {
-      if (isQualityTopic([word])) {
-        chosen.push({ display: titleCase(word), words: [word], score: unigramTF.get(word) });
+    // Last-resort fallback for tiny docs where nothing recurred. Prefer real
+    // headings first (these are the section titles the user actually wants),
+    // then fall back to word-like, non-generic, non-verb unigrams. We never
+    // dump raw gibberish or stray verbs ("Converts") just to fill the list.
+    for (const [norm, original] of headingSet.entries()) {
+      const words = norm.split(" ");
+      if (isQualityTopic(words) && !isThemeCandidate(words)) {
+        chosen.push({ display: titleCase(original), words, score: 5 });
       }
       if (chosen.length >= maxTopics) break;
+    }
+    if (chosen.length === 0) {
+      for (const [word] of sortedUnigrams) {
+        // single fallback words must be nouns (not verbs), real, and non-generic
+        if (
+          isQualityTopic([word]) &&
+          !isThemeWord(word) &&
+          !PROSE_VERBS.has(word)
+        ) {
+          chosen.push({ display: titleCase(word), words: [word], score: unigramTF.get(word) });
+        }
+        if (chosen.length >= maxTopics) break;
+      }
     }
   }
 
