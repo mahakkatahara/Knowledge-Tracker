@@ -55,40 +55,7 @@ const GENERIC_WORDS = new Set([
   "process", "system", "method", "approach", "technique", "property", "operation",
   "function", "variable", "object", "instance", "reference", "parameter",
   "argument", "statement", "expression", "condition", "iteration", "default",
-  // umbrella / subject-level words that are the *theme* of a document,
-  // never a section topic on their own ("Data Structure", "Algorithm"...)
-  "structure", "algorithm", "program", "programming", "language", "code",
-  "computer", "science", "study", "learning", "course", "syllabus", "unit",
-  "module", "lecture", "important", "basic", "advanced", "type", "application",
 ]);
-
-// Common verbs seen in explanatory prose. A topic is a NOUN phrase — any
-// candidate containing one of these is a sentence fragment ("Stack Overflow
-// Occurs", "List Stores Nodes"), not a topic, so it is rejected outright.
-const PROSE_VERBS = new Set([
-  "occurs", "occur", "allows", "allow", "avoids", "avoid", "stores", "store",
-  "updates", "update", "includes", "include", "provides", "provide",
-  "requires", "require", "contains", "contain", "ensures", "ensure",
-  "means", "mean", "refers", "refer", "consists", "consist", "depends",
-  "depend", "becomes", "become", "remains", "remain", "involves", "involve",
-  "follows", "follow", "performs", "perform", "represents", "represent",
-  "defines", "define", "describes", "describe", "denotes", "denote",
-  "holds", "hold", "takes", "take", "gives", "give", "gets", "get",
-  "uses", "makes", "make", "needs", "need", "helps", "help", "shows", "show",
-  "works", "runs", "run", "calls", "call", "returns", "creates", "create",
-  "adds", "add", "removes", "remove", "deletes", "delete", "inserts",
-  "insert", "keeps", "keep", "visits", "visit", "compares", "compare",
-  "divides", "divide", "arranges", "arrange", "affects", "affect",
-  "operates", "operate", "picks", "pick", "supports", "support",
-  "enables", "enable", "offers", "offer", "known", "called", "explain",
-  "explains", "explained", "discuss", "discussed", "write", "written",
-  "converts", "convert", "absorbs", "absorb", "regulate", "regulates",
-  "fixes", "produce", "produces", "release", "releases", "controls",
-  "control", "transports", "transport", "packages", "package", "connects",
-  "connect", "swaps", "swap", "splits", "split", "merges", "merge",
-  "partitions", "partition", "maintains", "maintain", "fills", "fill",
-]);
-const hasProseVerb = (words) => words.some((w) => PROSE_VERBS.has(w));
 
 // Lightweight singular/plural stemmer — only to collapse duplicates.
 function stem(w) {
@@ -115,7 +82,6 @@ function isQualityTopic(words) {
   if (!words.length) return false;
   for (const w of words) {
     if (!looksWordLike(w)) return false;       // any garbled word kills it
-    if (PROSE_VERBS.has(w)) return false;      // verbs aren't topics ("Converts", "Absorbs")
   }
   const meaningful = words.filter((w) => w.length >= 3 && !GENERIC_WORDS.has(stem(w)));
   if (meaningful.length === 0) return false;   // all words generic -> drop
@@ -201,71 +167,87 @@ export function extractTopicsFromText(rawText, opts = {}) {
   const content = tokens.filter(isContentWord);
   if (content.length === 0) return [];
 
-  // 1. Unigram term frequency
-  const unigramTF = new Map();
-  for (const w of content) unigramTF.set(w, (unigramTF.get(w) || 0) + 1);
+  // ---- Page awareness -------------------------------------------------
+  // extractTextFromPdf inserts "\f" between pages. If the marker is absent
+  // (plain text input / old callers) the whole doc counts as one page and
+  // everything below degrades gracefully to the previous behaviour.
+  const pages = rawText.split("\f");
+  const numPages = pages.length;
 
-  // 1b. Burstiness analysis — the key to separating real *topics* from the
-  //     document's overall *theme*. Split the doc into fixed windows of
-  //     content words; a genuine topic (e.g. "stack", "queue") is
-  //     concentrated in a few windows, while theme words (e.g. "data",
-  //     "structure", "algorithm" in a DSA book) appear in almost every
-  //     window. Theme words are suppressed; bursty words are boosted (TF-IDF).
-  const WINDOW = 120;
-  const windows = [];
-  for (let i = 0; i < content.length; i += WINDOW) {
-    windows.push(new Set(content.slice(i, i + WINDOW).map(stem)));
-  }
-  const numChunks = windows.length;
-  const df = new Map(); // stem -> number of windows containing it
-  for (const set of windows) {
-    for (const s of set) df.set(s, (df.get(s) || 0) + 1);
-  }
-  const idfOf = (w) => {
-    const d = df.get(stem(w)) || 1;
-    return Math.log(1 + numChunks / d);
+  // page-index -> local count, per term / phrase. Used to (a) know WHERE a
+  // candidate lives and (b) guarantee topic coverage across the whole PDF.
+  const unigramPages = new Map(); // word   -> Map(pageIdx -> count)
+  const phrasePages = new Map();  // phrase -> Map(pageIdx -> count)
+  const bump = (store, key, pageIdx) => {
+    let m = store.get(key);
+    if (!m) store.set(key, (m = new Map()));
+    m.set(pageIdx, (m.get(pageIdx) || 0) + 1);
   };
-  // A word is a "theme word" when the doc is long enough to judge (5+ windows)
-  // and the word shows up in 60%+ of them.
-  const isThemeWord = (w) =>
-    numChunks >= 5 && (df.get(stem(w)) || 0) / numChunks >= 0.6;
-  // A candidate is the doc's *subject* (not a topic) when theme/generic words
-  // form a strict majority of it. "Data Structure" / "Linear Data Structure"
-  // in a DSA doc -> rejected; "Data Mining" (1 of 2 bursty) -> kept.
-  const isThemeCandidate = (words) => {
-    const themey = words.filter(
-      (w) => isThemeWord(w) || GENERIC_WORDS.has(stem(w))
-    ).length;
-    return themey / words.length > 0.5;
-  };
-  const avgIdf = (words) =>
-    words.reduce((s, w) => s + idfOf(w), 0) / words.length;
+
+  // 1. Unigram term frequency (global) + per-page counts
+  const unigramTF = new Map();
+  pages.forEach((pageText, pageIdx) => {
+    for (const w of tokenize(pageText)) {
+      if (!isContentWord(w)) continue;
+      unigramTF.set(w, (unigramTF.get(w) || 0) + 1);
+      bump(unigramPages, w, pageIdx);
+    }
+  });
 
   // 2. Bigram / trigram frequency over consecutive content words.
   //    Phrases are built *within* sentence/line segments so unrelated words
   //    either side of punctuation never merge (e.g. "...per node. Linked List"
   //    must not yield the phantom topic "Node Linked").
   const phraseTF = new Map();
-  let run = [];
-  const flushRun = () => {
-    for (let i = 0; i < run.length; i++) {
-      for (let n = 2; n <= 3; n++) {
-        if (i + n <= run.length) {
-          const phrase = run.slice(i, i + n).join(" ");
-          phraseTF.set(phrase, (phraseTF.get(phrase) || 0) + 1);
+  pages.forEach((pageText, pageIdx) => {
+    let run = [];
+    const flushRun = () => {
+      for (let i = 0; i < run.length; i++) {
+        for (let n = 2; n <= 3; n++) {
+          if (i + n <= run.length) {
+            const phrase = run.slice(i, i + n).join(" ");
+            phraseTF.set(phrase, (phraseTF.get(phrase) || 0) + 1);
+            bump(phrasePages, phrase, pageIdx);
+          }
         }
       }
+      run = [];
+    };
+    const segments = pageText.split(/[.,;:!?()[\]{}"'\u2018\u2019\u201C\u201D\n\r\u2022\u2013\u2014]+/);
+    for (const seg of segments) {
+      for (const w of tokenize(seg)) {
+        if (isContentWord(w)) run.push(w);
+        else flushRun(); // stop-word also breaks a phrase
+      }
+      flushRun(); // segment boundary breaks a phrase
     }
-    run = [];
+  });
+
+  // The page where a candidate is most concentrated (ties -> earliest page).
+  const homePageOf = (key, isPhrase, words) => {
+    const m = isPhrase ? phrasePages.get(key) : unigramPages.get(key);
+    if (m && m.size) {
+      let best = -1, bestCount = -1;
+      for (const [p, c] of m) {
+        if (c > bestCount || (c === bestCount && p < best)) { best = p; bestCount = c; }
+      }
+      return best;
+    }
+    // Heading-only candidates: use the earliest page containing all its words.
+    for (let p = 0; p < numPages; p++) {
+      if (words.every((w) => (unigramPages.get(w) || new Map()).has(p))) return p;
+    }
+    // Last resort: earliest page of the rarest word.
+    let earliest = 0, rarity = Infinity;
+    for (const w of words) {
+      const wm = unigramPages.get(w);
+      if (!wm) continue;
+      const first = Math.min(...wm.keys());
+      const freq = unigramTF.get(w) || Infinity;
+      if (freq < rarity) { rarity = freq; earliest = first; }
+    }
+    return earliest;
   };
-  const segments = rawText.split(/[.,;:!?()[\]{}"'\u2018\u2019\u201C\u201D\n\r\u2022\u2013\u2014]+/);
-  for (const seg of segments) {
-    for (const w of tokenize(seg)) {
-      if (isContentWord(w)) run.push(w);
-      else flushRun(); // stop-word also breaks a phrase
-    }
-    flushRun(); // segment boundary breaks a phrase
-  }
 
   // 3. Heading candidates get a strong boost
   const headings = detectHeadings(rawText);
@@ -275,13 +257,13 @@ export function extractTopicsFromText(rawText, opts = {}) {
     if (norm) headingSet.set(norm, h);
   }
 
-  // 4. Build a unified candidate pool with scores
-  const candidates = new Map(); // key(normalized) -> { display, score, words }
+  // 4. Build a unified candidate pool with scores (+ home page for coverage)
+  const candidates = new Map(); // key -> { display, score, words, homePage }
 
-  const addCandidate = (normalized, display, score, words) => {
+  const addCandidate = (normalized, display, score, words, homePage) => {
     const existing = candidates.get(normalized);
     if (!existing || score > existing.score) {
-      candidates.set(normalized, { display, score, words });
+      candidates.set(normalized, { display, score, words, homePage });
     }
   };
 
@@ -289,40 +271,27 @@ export function extractTopicsFromText(rawText, opts = {}) {
   for (const [phrase, freq] of phraseTF.entries()) {
     if (freq < 2) continue; // must recur to count as a topic
     const words = phrase.split(" ");
-    if (isThemeCandidate(words)) continue; // "data structure" in a DSA doc = theme, not a topic
-    if (hasProseVerb(words)) continue; // "stack overflow occurs" = sentence fragment
-    // A truncated fragment like "Linear Data" (cut from "linear data
-    // structure") contains a generic/theme word. Real section topics that
-    // legitimately contain one ("Sorting Algorithms") appear as headings and
-    // are rescued below in the heading loop.
-    if (
-      !headingSet.has(phrase) &&
-      words.some((w) => isThemeWord(w) || GENERIC_WORDS.has(stem(w)))
-    )
-      continue;
     const wordScore = words.reduce((s, w) => s + (unigramTF.get(w) || 0), 0);
     const lengthBonus = 1 + (words.length - 1) * 0.4;
-    let score = (freq * 3 * lengthBonus + wordScore * 0.2) * avgIdf(words);
+    let score = freq * 3 * lengthBonus + wordScore * 0.2;
     if (headingSet.has(phrase)) score *= 1.8;
-    addCandidate(phrase, titleCase(phrase), score, words);
+    addCandidate(phrase, titleCase(phrase), score, words, homePageOf(phrase, true, words));
   }
 
   // headings that aren't already phrase candidates
   for (const [norm, original] of headingSet.entries()) {
     if (candidates.has(norm)) continue;
     const words = norm.split(" ");
-    if (isThemeCandidate(words)) continue; // doc-title headings like "Data Structures"
     const wordScore = words.reduce((s, w) => s + (unigramTF.get(w) || 0), 0);
-    const score = (6 + wordScore * 0.5 + words.length) * avgIdf(words);
-    addCandidate(norm, titleCase(original.replace(/\s+/g, " ")), score, words);
+    const score = 6 + wordScore * 0.5 + words.length;
+    addCandidate(norm, titleCase(original.replace(/\s+/g, " ")), score, words, homePageOf(norm, false, words));
   }
 
   // strong standalone keywords (only if not already inside a chosen phrase later)
   const sortedUnigrams = [...unigramTF.entries()].sort((a, b) => b[1] - a[1]);
   for (const [word, freq] of sortedUnigrams.slice(0, 25)) {
     if (freq < 3) continue;
-    if (isThemeWord(word)) continue; // "algorithm" 200x in an algo book ≠ topic
-    addCandidate(word, titleCase(word), freq * idfOf(word), [word]);
+    addCandidate(word, titleCase(word), freq * 1.0, [word], homePageOf(word, false, [word]));
   }
 
   // 5. Rank
@@ -343,60 +312,79 @@ export function extractTopicsFromText(rawText, opts = {}) {
     // Relaxed gate for very short docs: allow single-occurrence terms but STILL
     // require them to look like real words / non-generic. We never fall back to
     // the raw ranking, so garbled or phantom "topics" are not surfaced.
-    // Extra guard: a lone single word (e.g. a stray verb like "Converts")
-    // only qualifies if it's an actual heading or recurs — multi-word phrases
-    // and headings are always allowed.
-    ranked = ranked.filter((c) => {
-      if (!isQualityTopic(c.words)) return false;
-      const norm = c.words.join(" ");
-      if (headingSet.has(norm)) return true; // real heading
-      if (c.words.length >= 2) return true; // a phrase reads like a topic
-      return support(c.words) >= 2; // lone word must recur
-    });
+    ranked = ranked.filter((c) => isQualityTopic(c.words));
   }
 
-  // 6. Greedy selection that suppresses near-duplicate / overlapping topics
-  //    (e.g. drop "Search Trees" when "Binary Search Trees" is already chosen).
-  //    Stems are used so singular/plural variants collapse to one.
+  // 6. Page-stratified selection with near-duplicate suppression.
+  //
+  //    Problem this solves: pure frequency ranking clusters all winners in the
+  //    first few pages (intro pages repeat terms heavily), so a 30-page PDF
+  //    would yield 8 topics all from pages 1-8. Instead we split the document
+  //    into `maxTopics` page buckets and pick the strongest topic *from each
+  //    bucket*, so the selection spans the ENTIRE PDF — even when asking for
+  //    only 5 topics from 30 pages. Empty buckets (no quality candidate there)
+  //    are back-filled from the global ranking in a second pass.
   const chosen = [];
   const coveredStems = new Set();
   const chosenKeys = new Set();
-  for (const c of ranked) {
+
+  const tryChoose = (c) => {
     const stems = c.words.map(stem);
     const key = [...new Set(stems)].sort().join(" ");
-    if (chosenKeys.has(key)) continue; // exact (stemmed / reordered) duplicate
+    if (chosenKeys.has(key)) return false; // exact (stemmed / reordered) dup
     const overlap = stems.filter((s) => coveredStems.has(s)).length;
-    if (overlap / stems.length >= 0.6) continue;
+    if (overlap / stems.length >= 0.6) return false;
     chosen.push(c);
     chosenKeys.add(key);
     stems.forEach((s) => coveredStems.add(s));
-    if (chosen.length >= maxTopics) break;
+    return true;
+  };
+
+  if (numPages > 1) {
+    // Map a page index to its bucket (0 .. maxTopics-1).
+    const bucketOf = (p) =>
+      Math.min(maxTopics - 1, Math.floor((p * maxTopics) / numPages));
+
+    // Group ranked candidates by the bucket of their home page. Within a
+    // bucket the global ranking order (score desc) is preserved.
+    const byBucket = Array.from({ length: maxTopics }, () => []);
+    for (const c of ranked) byBucket[bucketOf(c.homePage ?? 0)].push(c);
+
+    // Pass 1: walk buckets front-to-back, best candidate from each — this is
+    // what forces coverage of the whole document.
+    for (const bucket of byBucket) {
+      if (chosen.length >= maxTopics) break;
+      for (const c of bucket) {
+        if (tryChoose(c)) break; // one topic per bucket in this pass
+      }
+    }
+    // Pass 2: if some buckets were empty / all-duplicates, fill remaining
+    // slots from the global ranking so we still return maxTopics when possible.
+    if (chosen.length < maxTopics) {
+      for (const c of ranked) {
+        if (chosen.length >= maxTopics) break;
+        tryChoose(c);
+      }
+    }
+    // Present topics in document order (page flow), not raw score order —
+    // reads naturally as a syllabus of the PDF.
+    chosen.sort((a, b) => (a.homePage ?? 0) - (b.homePage ?? 0));
+  } else {
+    // Single page / plain text: original greedy behaviour.
+    for (const c of ranked) {
+      if (chosen.length >= maxTopics) break;
+      tryChoose(c);
+    }
   }
 
   if (chosen.length === 0) {
-    // Last-resort fallback for tiny docs where nothing recurred. Prefer real
-    // headings first (these are the section titles the user actually wants),
-    // then fall back to word-like, non-generic, non-verb unigrams. We never
-    // dump raw gibberish or stray verbs ("Converts") just to fill the list.
-    for (const [norm, original] of headingSet.entries()) {
-      const words = norm.split(" ");
-      if (isQualityTopic(words) && !isThemeCandidate(words)) {
-        chosen.push({ display: titleCase(original), words, score: 5 });
+    // fallback: take the top unigrams, but only genuinely word-like, non-generic
+    // ones — never raw gibberish just to fill the list.
+    for (const [word] of sortedUnigrams) {
+      if (isQualityTopic([word])) {
+        chosen.push({ display: titleCase(word), words: [word], score: unigramTF.get(word) });
       }
       if (chosen.length >= maxTopics) break;
-    }
-    if (chosen.length === 0) {
-      for (const [word] of sortedUnigrams) {
-        // single fallback words must be nouns (not verbs), real, and non-generic
-        if (
-          isQualityTopic([word]) &&
-          !isThemeWord(word) &&
-          !PROSE_VERBS.has(word)
-        ) {
-          chosen.push({ display: titleCase(word), words: [word], score: unigramTF.get(word) });
-        }
-        if (chosen.length >= maxTopics) break;
-      }
     }
   }
 
@@ -419,7 +407,7 @@ export function extractTopicsFromText(rawText, opts = {}) {
   //    do NOT fabricate quiz/confidence/last-studied here — the user enters those
   //    on the review form, and the decay engine then computes the real risk %.
   //    Difficulty is only a suggested default (editable by the user).
-  const maxScore = chosen[0].score || 1;
+  const maxScore = Math.max(...chosen.map((c) => c.score || 0)) || 1;
 
   // Normalised key for a final, title-level de-duplication. Cleaning + stemming
   // are applied AFTER the earlier greedy pass, so two candidates like
@@ -490,7 +478,9 @@ export async function extractTextFromPdf(file) {
       line += item.str + " ";
       lastY = y;
     }
-    fullText += line.trim() + "\n\n";
+    // "\f" (form feed) marks a page boundary so topic extraction can be
+    // page-aware. It sits on its own line and is invisible to tokenization.
+    fullText += line.trim() + "\n\f\n";
   }
   return fullText;
 }
