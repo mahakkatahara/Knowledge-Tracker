@@ -87,6 +87,11 @@ const PROSE_VERBS = new Set([
   "control", "transports", "transport", "packages", "package", "connects",
   "connect", "swaps", "swap", "splits", "split", "merges", "merge",
   "partitions", "partition", "maintains", "maintain", "fills", "fill",
+  // imperative verbs common in instructions / management steps
+  "start", "give", "deliver", "repeat", "perform", "avoid", "check",
+  "monitor", "consider", "prepare", "rotate", "push", "roll", "call",
+  "evaluate", "stop", "relieve", "lift", "apply", "administer", "assess",
+  "manage", "treat", "confirm", "rule", "prevent", "reduce", "increase",
 ]);
 const hasProseVerb = (words) => words.some((w) => PROSE_VERBS.has(w));
 
@@ -168,7 +173,9 @@ function detectHeadings(rawText) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     const words = trimmed.split(/\s+/);
-    if (words.length < 1 || words.length > 7) continue;
+    // A real section heading is short. Longer title-case lines are usually
+    // table rows ("Consistency of Cervix Firm Average Soft") or sentences.
+    if (words.length < 1 || words.length > 5) continue;
     if (/[.:;,]$/.test(trimmed)) continue;
     const letters = trimmed.replace(/[^a-zA-Z]/g, "");
     if (letters.length < 4) continue;
