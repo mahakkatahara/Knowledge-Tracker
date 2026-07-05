@@ -95,56 +95,7 @@ async function callGeminiModel(prompt, model, key) {
   const data = await res.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 }
-/**
- * Generic Gemini text call with the same retry + model-fallback strategy the
- * quiz uses. Shared by the Chat Assistant. Throws only after every model and
- * retry attempt is exhausted.
- */
-export async function askGemini(prompt, { temperature = 0.6, maxOutputTokens = 1024 } = {}) {
-  const key = getGeminiKey().trim();
-  if (!key) throw new Error("No Gemini API key configured (VITE_GEMINI_API_KEY).");
 
-  const MAX_ATTEMPTS_PER_MODEL = 3;
-  let lastErr = new Error("AI request failed.");
-
-  for (const model of GEMINI_MODELS) {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_MODEL; attempt++) {
-      try {
-        let res;
-        try {
-          res = await fetch(GEMINI_URL(model, key), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature, maxOutputTokens },
-            }),
-          });
-        } catch (networkErr) {
-          const e = new Error(networkErr.message || "Network error");
-          e.retryable = true;
-          throw e;
-        }
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          const msg = errBody?.error?.message || `Gemini request failed (${res.status})`;
-          const e = new Error(msg);
-          e.retryable = isRetryable(res.status, msg);
-          throw e;
-        }
-        const data = await res.json();
-        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        if (!text.trim()) throw Object.assign(new Error("Empty response."), { retryable: true });
-        return text.trim();
-      } catch (e) {
-        lastErr = e;
-        if (!e.retryable) break;
-        if (attempt < MAX_ATTEMPTS_PER_MODEL) await sleep(800 * attempt);
-      }
-    }
-  }
-  throw lastErr;
-}
 /**
  * AI generation via Gemini, with retry + model fallback.
  * Tries each model in GEMINI_MODELS; for each, retries transient overloads with
@@ -189,6 +140,36 @@ async function generateWithGemini(plan, difficulty, key) {
       }
     }
     // Move on to the next model in the fallback list.
+  }
+  throw lastErr;
+}
+
+/**
+ * Generic Gemini text call, reusing the same key + model-fallback + retry logic
+ * as the quiz generator. Any feature that needs a one-shot LLM completion (e.g.
+ * the topic refiner) can call this instead of re-implementing the plumbing.
+ *
+ * @param {string} prompt
+ * @returns {Promise<string>} raw model text
+ * @throws if there is no key, or every model/attempt fails.
+ */
+export async function callGeminiText(prompt) {
+  const key = getGeminiKey().trim();
+  if (!key) throw new Error("No Gemini API key configured.");
+
+  const MAX_ATTEMPTS_PER_MODEL = 3;
+  let lastErr = new Error("AI request failed.");
+
+  for (const model of GEMINI_MODELS) {
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_MODEL; attempt++) {
+      try {
+        return await callGeminiModel(prompt, model, key);
+      } catch (e) {
+        lastErr = e;
+        if (!e.retryable) break; // bad key / bad request → don't retry this model
+        if (attempt < MAX_ATTEMPTS_PER_MODEL) await sleep(800 * attempt);
+      }
+    }
   }
   throw lastErr;
 }

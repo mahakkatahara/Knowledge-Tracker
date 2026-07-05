@@ -1,13 +1,13 @@
 import { useState, useRef, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, BookOpen, Star, Award, Clock, Brain, UploadCloud, FileText, Loader, AlertCircle, PlayCircle, Globe, GraduationCap } from "lucide-react";
+import { Plus, Trash2, BookOpen, Star, Award, Clock, Brain, UploadCloud, FileText, Loader, AlertCircle, PlayCircle, Globe, GraduationCap, Sparkles } from "lucide-react";
 import useLocalStorage from "../hooks/useLocalStorage";
 import { INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { calculateRetention, getForgetRisk, localTodayISO } from "../utils/decayEngine";
-import { makeSession } from "../utils/sessionLog";
+import { calculateRetention, getForgetRisk } from "../utils/decayEngine";
 import { extractTopicsFromPdf } from "../utils/pdfExtractor";
+import { refineTopics, canRefineWithAi } from "../utils/topicRefiner";
 import { AuthContext } from "../context/AuthContext";
 import { Reveal } from "../components/ui/Reveal";
 import RiskBadge from "../components/ui/RiskBadge";
@@ -17,7 +17,7 @@ const StudyTracker = () => {
   const { user } = useContext(AuthContext);
   const uid = user?.email || "guest";
   const [topics, setTopics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
-  const [, setSessions] = useLocalStorage(`kt_sessions::${uid}`, []);
+
   const studyLinks = (title) => {
     const t = encodeURIComponent(title.trim());
     return {
@@ -50,6 +50,10 @@ const StudyTracker = () => {
   const [uploadError, setUploadError] = useState("");
   const [pendingTopics, setPendingTopics] = useState([]);
   const [pendingFile, setPendingFile] = useState("");
+  // How many topics the user wants pulled from the PDF (was hard-coded to 8).
+  const [topicCount, setTopicCount] = useState(8);
+  // Whether the last extraction was AI-verified (Gemini) or local-only.
+  const [aiVerified, setAiVerified] = useState(false);
 
   const handlePdfUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
@@ -66,13 +70,34 @@ const StudyTracker = () => {
     }
 
     setUploading(true);
+    setAiVerified(false);
     try {
-      const { topics: extracted } = await extractTopicsFromPdf(file, { maxTopics: 8 });
+      // Over-extract locally so the AI verifier has a rich pool to filter/rank
+      // (and so a no-key fallback still has enough to fill `topicCount`).
+      const candidateCap = Math.min(60, Math.max(topicCount * 3, topicCount + 10));
+      const { topics: rawCandidates, pageText } = await extractTopicsFromPdf(file, {
+        maxTopics: candidateCap,
+      });
 
-      if (!extracted || extracted.length === 0) {
+      if (!rawCandidates || rawCandidates.length === 0) {
         setUploadError(
           "Couldn't find readable text/topics in that PDF. Scanned image-only PDFs aren't supported (no embedded text)."
         );
+        return;
+      }
+
+      // Second pass: Gemini keeps only real topics (drops lines / table rows /
+      // instructions), fixes wording, trims to topicCount. Falls back to the
+      // local list if there's no API key or the AI call fails.
+      const { topics: extracted, usedAi } = await refineTopics(
+        rawCandidates,
+        pageText,
+        topicCount
+      );
+      setAiVerified(usedAi);
+
+      if (!extracted || extracted.length === 0) {
+        setUploadError("Couldn't extract usable topics from that PDF.");
         return;
       }
 
@@ -127,7 +152,7 @@ const StudyTracker = () => {
         return;
       }
     }
-    const today = localTodayISO();
+    const today = new Date().toISOString().split("T")[0];
     const existingKeys = new Set(topics.map((t) => normalizeTitle(t.title)));
     const seen = new Set();
     const built = pendingTopics
@@ -157,7 +182,6 @@ const StudyTracker = () => {
       return;
     }
     setTopics((prev) => [...built, ...prev]);
-    setSessions((prev) => [...prev, ...built.map((t) => makeSession(t.id, t.duration, today))]);
     setPendingTopics([]);
     setPendingFile("");
   };
@@ -258,6 +282,39 @@ const StudyTracker = () => {
                 is computed for you.
               </p>
 
+              <div className="mb-4 flex flex-wrap items-center gap-3">
+                <label htmlFor="topic-count" className="text-sm text-muted">
+                  Topics to extract:
+                </label>
+                <select
+                  id="topic-count"
+                  value={topicCount}
+                  onChange={(e) => setTopicCount(Number(e.target.value))}
+                  disabled={uploading}
+                  className={fieldCls + " w-auto"}
+                >
+                  {[5, 8, 10, 15, 20, 30, 40].map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+                <span
+                  className={
+                    "flex items-center gap-1 rounded-full border px-2 py-1 text-xs " +
+                    (canRefineWithAi()
+                      ? "border-synapse/40 bg-synapse/[0.08] text-synapse-bright"
+                      : "border-line bg-white/[0.03] text-faint")
+                  }
+                  title={
+                    canRefineWithAi()
+                      ? "Extracted topics are verified & cleaned by AI (Gemini)."
+                      : "Add a Gemini API key (VITE_GEMINI_API_KEY) to enable AI verification."
+                  }
+                >
+                  <Sparkles size={12} />
+                  {canRefineWithAi() ? "AI verification on" : "AI verification off"}
+                </span>
+              </div>
+
               <input ref={fileInputRef} type="file" accept="application/pdf,.pdf" onChange={handlePdfUpload} className="hidden" />
 
               <button
@@ -300,8 +357,14 @@ const StudyTracker = () => {
                       <FileText size={14} className="mt-0.5 shrink-0 text-signal" />
                       <span>
                         Found <strong className="text-ink">{pendingTopics.length}</strong> topics in{" "}
-                        <em className="text-signal">{pendingFile}</em>. Enter your quiz score &
-                        confidence — the app computes the forget-risk automatically.
+                        <em className="text-signal">{pendingFile}</em>
+                        {aiVerified ? (
+                          <span className="ml-1 inline-flex items-center gap-1 rounded-full border border-synapse/40 bg-synapse/[0.1] px-1.5 py-0.5 text-[10px] text-synapse-bright">
+                            <Sparkles size={10} /> AI-verified
+                          </span>
+                        ) : null}
+                        . Enter your quiz score & confidence — the app computes the forget-risk
+                        automatically.
                       </span>
                     </div>
 
