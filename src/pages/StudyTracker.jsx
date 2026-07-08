@@ -44,7 +44,6 @@ const StudyTracker = () => {
   const [difficulty, setDifficulty] = useState("Medium");
   const [duration, setDuration] = useState("");
   const [confidenceScore, setConfidenceScore] = useState(3);
-  const [quizScore, setQuizScore] = useState("");
 
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -151,12 +150,6 @@ const StudyTracker = () => {
   };
 
   const commitPendingTopics = () => {
-    for (const p of pendingTopics) {
-      if (p.quizScore === "" || isNaN(parseInt(p.quizScore))) {
-        alert("Please enter a quiz score (0–100) for every topic before adding.");
-        return;
-      }
-    }
     const today = new Date().toISOString().split("T")[0];
     const existingKeys = new Set(topics.map((t) => normalizeTitle(t.title)));
     const seen = new Set();
@@ -173,7 +166,7 @@ const StudyTracker = () => {
         lastStudied: today,
         duration: parseInt(p.duration) || 30,
         confidenceScore: parseInt(p.confidenceScore) || 3,
-        quizScore: Math.min(100, Math.max(0, parseInt(p.quizScore))),
+        quizScore: 0,
         revisionCount: 0,
         difficulty: p.difficulty,
         source: "pdf",
@@ -198,7 +191,7 @@ const StudyTracker = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!title.trim() || !duration || !quizScore) {
+    if (!title.trim() || !duration) {
       alert("Please fill out all fields before logging.");
       return;
     }
@@ -215,7 +208,7 @@ const StudyTracker = () => {
       lastStudied: new Date().toISOString().split("T")[0],
       duration: parseInt(duration),
       confidenceScore: parseInt(confidenceScore),
-      quizScore: Math.min(100, Math.max(0, parseInt(quizScore))),
+      quizScore: 0,
       revisionCount: 0,
       difficulty,
     };
@@ -226,12 +219,18 @@ const StudyTracker = () => {
     setDifficulty("Medium");
     setDuration("");
     setConfidenceScore(3);
-    setQuizScore("");
   };
 
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this study topic?")) {
       setTopics(topics.filter((topic) => topic.id !== id));
+    }
+  };
+
+  const handleDeleteAll = () => {
+    if (topics.length === 0) return;
+    if (window.confirm(`Delete all ${topics.length} topics? This cannot be undone.`)) {
+      setTopics([]);
     }
   };
 
@@ -283,8 +282,8 @@ const StudyTracker = () => {
             <Card title="Upload PDF — auto-extract topics">
               <p className="mb-4 text-sm leading-relaxed text-muted">
                 Drop your study notes as a PDF. The app reads the whole document and pulls
-                out the key topics — you enter quiz score & confidence, and the forget-risk
-                is computed for you.
+                out the key topics — they're added straight to your tracker, and the
+                forget-risk is computed for you.
               </p>
 
               <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -368,8 +367,8 @@ const StudyTracker = () => {
                             <Sparkles size={10} /> AI-verified
                           </span>
                         ) : null}
-                        . Enter your quiz score & confidence — the app computes the forget-risk
-                        automatically.
+                        . Review the titles and add them — the app computes the forget-risk
+                        automatically. Take a quiz later to score them.
                       </span>
                     </div>
 
@@ -384,14 +383,13 @@ const StudyTracker = () => {
                               onChange={(e) => updatePending(p.id, "title", e.target.value)}
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <div className="grid grid-cols-3 gap-2">
                             <select value={p.difficulty} onChange={(e) => updatePending(p.id, "difficulty", e.target.value)} className={fieldCls} title="Difficulty">
                               <option value="Easy">Easy</option>
                               <option value="Medium">Medium</option>
                               <option value="Hard">Hard</option>
                             </select>
                             <input type="number" min="1" placeholder="Min" value={p.duration} onChange={(e) => updatePending(p.id, "duration", e.target.value)} className={fieldCls} title="Minutes studied" />
-                            <input type="number" min="0" max="100" placeholder="Quiz %" value={p.quizScore} onChange={(e) => updatePending(p.id, "quizScore", e.target.value)} className={fieldCls} title="Quiz score" />
                             <select value={p.confidenceScore} onChange={(e) => updatePending(p.id, "confidenceScore", e.target.value)} className={fieldCls} title="Confidence (1–5)">
                               <option value="1">Conf 1</option>
                               <option value="2">Conf 2</option>
@@ -438,21 +436,15 @@ const StudyTracker = () => {
                     <input id="duration" type="number" placeholder="e.g., 60" value={duration} onChange={(e) => setDuration(e.target.value)} min="1" required className={fieldCls} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="confidence" className={labelCls}>Confidence (1-5)</label>
-                    <select id="confidence" value={confidenceScore} onChange={(e) => setConfidenceScore(parseInt(e.target.value))} className={fieldCls}>
-                      <option value="1">1 - Very Low</option>
-                      <option value="2">2 - Low</option>
-                      <option value="3">3 - Medium</option>
-                      <option value="4">4 - High</option>
-                      <option value="5">5 - Excellent</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="quiz" className={labelCls}>Quiz score (%)</label>
-                    <input id="quiz" type="number" placeholder="e.g., 85" value={quizScore} onChange={(e) => setQuizScore(e.target.value)} min="0" max="100" required className={fieldCls} />
-                  </div>
+                <div>
+                  <label htmlFor="confidence" className={labelCls}>Confidence (1-5)</label>
+                  <select id="confidence" value={confidenceScore} onChange={(e) => setConfidenceScore(parseInt(e.target.value))} className={fieldCls}>
+                    <option value="1">1 - Very Low</option>
+                    <option value="2">2 - Low</option>
+                    <option value="3">3 - Medium</option>
+                    <option value="4">4 - High</option>
+                    <option value="5">5 - Excellent</option>
+                  </select>
                 </div>
                 <Button type="submit" variant="primary" className="mt-1 w-full">
                   <Plus size={16} /> Log activity
@@ -465,7 +457,20 @@ const StudyTracker = () => {
         {/* ── Right: catalog ── */}
         <div className="flex flex-col gap-6">
           <Reveal>
-            <Card title="Active learning catalog">
+            <Card
+              title="Active learning catalog"
+              actions={
+                topics.length > 0 ? (
+                  <button
+                    onClick={handleDeleteAll}
+                    title="Delete all topics"
+                    className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-faint transition hover:border-lost/40 hover:bg-lost/10 hover:text-lost"
+                  >
+                    <Trash2 size={13} /> Delete all
+                  </button>
+                ) : null
+              }
+            >
             {topics.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <span className="grid h-16 w-16 place-items-center rounded-2xl border border-line bg-surface-2">
