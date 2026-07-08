@@ -463,7 +463,7 @@ const Quiz = () => {
                   const c = ringColor(b.score);
                   return (
                     <div key={id} className="flex items-center gap-3">
-                      <span className="w-32 shrink-0 truncate text-sm text-ink">{b.title}</span>
+                      <span className="w-40 shrink-0 truncate text-sm text-ink sm:w-48" title={b.title}>{b.title}</span>
                       <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-2">
                         <motion.div initial={{ width: 0 }} animate={{ width: `${b.score}%` }} transition={{ duration: 0.8 }} className="h-full rounded-full" style={{ background: c, boxShadow: `0 0 10px ${c}80` }} />
                       </div>

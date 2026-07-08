@@ -47,7 +47,7 @@ const Navbar = () => {
     <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-3 pt-3 sm:px-4 sm:pt-4">
       <nav
         className={cn(
-          "flex w-full max-w-6xl items-center justify-between gap-2 rounded-full border px-3 py-2 transition-all duration-300 sm:px-4",
+          "flex w-full max-w-[1680px] items-center justify-between gap-2 rounded-full border px-3 py-2 transition-all duration-300 sm:px-4",
           scrolled
             ? "glass-strong border-line-strong shadow-[0_18px_50px_-22px_rgba(0,0,0,0.9)]"
             : "border-line bg-surface-2 backdrop-blur-md"

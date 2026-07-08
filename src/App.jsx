@@ -27,7 +27,7 @@ function ScrollToTop() {
 function Footer() {
   return (
     <footer className="relative mt-20 border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-7 text-sm text-muted sm:flex-row">
+      <div className="mx-auto flex max-w-[1680px] flex-col items-center justify-between gap-4 px-4 py-7 text-sm text-muted sm:flex-row sm:px-6 lg:px-10">
         <Logo size={30} />
         <div className="flex items-center gap-5 text-xs">
           <Link to="/dashboard" className="transition-colors hover:text-ink">Dashboard</Link>
@@ -80,7 +80,7 @@ function Shell() {
       />
       <Navbar />
       <ScrollToTop />
-      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-10 pt-24 sm:px-5 sm:pt-28">
+      <main className="relative z-10 mx-auto w-full max-w-[1680px] px-4 pb-10 pt-24 sm:px-6 lg:px-10 sm:pt-28">
         <ErrorBoundary>
           <AllRoutes />
         </ErrorBoundary>

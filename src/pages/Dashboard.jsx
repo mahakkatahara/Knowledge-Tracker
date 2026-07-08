@@ -222,24 +222,46 @@ const Dashboard = () => {
 
           <Reveal>
             <Card title="Forget-risk distribution">
-              <div className="flex flex-col gap-4 pt-1">
-                {dist.map((d) => (
-                  <div key={d.label} className="flex items-center gap-3">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
-                    <span className="flex-1 truncate text-sm text-muted">{d.label}</span>
-                    <div className="h-2 w-24 shrink-0 overflow-hidden rounded-full bg-surface-2 sm:w-28">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${(d.count / topicDivisor) * 100}%` }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
-                        className="h-full rounded-full"
-                        style={{ background: d.color, boxShadow: `0 0 12px ${d.color}80` }}
-                      />
+              <div className="px-5 pb-6 sm:px-6">
+                {topics.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted">
+                    No topics yet — add some in the tracker to see your risk breakdown.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex h-3 w-full overflow-hidden rounded-full bg-surface-2">
+                      {dist.map((d) => {
+                        const w = (d.count / topicDivisor) * 100;
+                        if (w <= 0) return null;
+                        return (
+                          <motion.div
+                            key={d.label}
+                            initial={{ width: 0 }}
+                            whileInView={{ width: `${w}%` }}
+                            viewport={{ once: true }}
+                            transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+                            className="h-full"
+                            style={{ background: d.color }}
+                          />
+                        );
+                      })}
                     </div>
-                    <span className="mono w-5 shrink-0 text-right text-sm font-semibold" style={{ color: d.color }}>{d.count}</span>
-                  </div>
-                ))}
+
+                    <div className="mt-6 flex flex-col gap-4">
+                      {dist.map((d) => {
+                        const pct = Math.round((d.count / topicDivisor) * 100);
+                        return (
+                          <div key={d.label} className="flex items-center gap-3">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
+                            <span className="flex-1 text-sm text-muted">{d.label}</span>
+                            <span className="mono text-xs text-faint">{pct}%</span>
+                            <span className="font-display w-6 text-right text-base font-semibold" style={{ color: d.color }}>{d.count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
           </Reveal>
@@ -259,7 +281,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
+                <div className="flex max-h-[26rem] flex-col gap-3 overflow-y-auto pr-1">
                   {highRiskTopics.map((topic) => (
                     <div key={topic.id} className="flex items-center justify-between gap-3 rounded-2xl border border-lost/25 bg-lost/[0.06] p-4">
                       <div>
@@ -283,7 +305,7 @@ const Dashboard = () => {
               {upcomingRevisions.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted">No upcoming revisions scheduled.</p>
               ) : (
-                <div className="flex flex-col gap-2.5">
+                <div className="flex max-h-[26rem] flex-col gap-2.5 overflow-y-auto pr-1">
                   {upcomingRevisions.map((rev) => (
                     <div key={rev.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface-2 px-4 py-3">
                       <div>
