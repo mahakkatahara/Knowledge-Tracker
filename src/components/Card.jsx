@@ -3,7 +3,7 @@ import { cn } from "../lib/cn";
 /**
  * Card — glass panel
  */
-const Card = ({ title, actions, className = "", children, ...props }) => {
+const Card = ({ title, actions, className = "", noPadding = false, children, ...props }) => {
   return (
     <div
       className={cn(
@@ -31,10 +31,15 @@ const Card = ({ title, actions, className = "", children, ...props }) => {
         </div>
       )}
 
-      {/* IMPORTANT */}
+      {/* IMPORTANT — every card's content gets breathing room from the edges by
+          default, so text/inputs never sit flush against the border. Pass
+          `noPadding` for full-bleed layouts (e.g. a chat window that manages
+          its own internal spacing). */}
       <div
         className={cn(
           "flex flex-col flex-1 min-h-0",
+          !noPadding && "px-5 pb-5 sm:px-6 sm:pb-6",
+          !noPadding && !(title || actions) && "pt-5 sm:pt-6",
           !(title || actions) && "h-full"
         )}
       >

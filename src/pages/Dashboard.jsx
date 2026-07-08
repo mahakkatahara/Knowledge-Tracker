@@ -222,7 +222,7 @@ const Dashboard = () => {
 
           <Reveal>
             <Card title="Forget-risk distribution">
-              <div className="px-5 pb-6 sm:px-6">
+              <div>
                 {topics.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted">
                     No topics yet — add some in the tracker to see your risk breakdown.

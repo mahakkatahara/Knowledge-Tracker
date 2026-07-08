@@ -406,7 +406,7 @@ const ChatAssistant = () => {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Chat */}
-        <Card className="flex h-[64vh] min-h-[520px] flex-col p-0">
+        <Card className="flex h-[64vh] min-h-[520px] flex-col p-0" noPadding>
           <div className="flex-1 space-y-5 overflow-y-auto p-5">
             {messages.map((msg) => {
               const bot = msg.sender === "bot";
