@@ -203,6 +203,12 @@ function detectHeadings(rawText) {
  */
 export function extractTopicsFromText(rawText, opts = {}) {
   const maxTopics = opts.maxTopics || 8;
+  // When the caller over-extracts (a big maxTopics pool) but really only wants
+  // `finalCount` topics shown, we stratify the FIRST finalCount across the whole
+  // PDF and put them at the front of the returned list. That way a later
+  // `slice(0, finalCount)` (the no-AI fallback in StudyTracker) still gets a
+  // spread-out set, and an AI re-ranker gets a rich pool. Defaults to maxTopics.
+  const finalCount = Math.min(opts.finalCount || maxTopics, maxTopics);
 
   const tokens = tokenize(rawText);
   const content = tokens.filter(isContentWord);
@@ -211,6 +217,57 @@ export function extractTopicsFromText(rawText, opts = {}) {
   // 1. Unigram term frequency
   const unigramTF = new Map();
   for (const w of content) unigramTF.set(w, (unigramTF.get(w) || 0) + 1);
+
+  // 1a. Page awareness. extractTextFromPdf inserts "\f" between pages. If the
+  //     marker is absent (plain-text input / older callers) the whole doc is a
+  //     single page and every page-aware step below degrades gracefully to the
+  //     previous behaviour. We record which page(s) each word / phrase lives on
+  //     so the final selection can span the WHOLE PDF instead of clustering in
+  //     the first few (heavily-repeated) pages.
+  const pages = rawText.split("\f");
+  const numPages = pages.length;
+  const unigramPages = new Map(); // word   -> Map(pageIdx -> count)
+  const phrasePagesMap = new Map(); // phrase -> Map(pageIdx -> count)
+  const bumpPage = (store, key, pageIdx) => {
+    let m = store.get(key);
+    if (!m) store.set(key, (m = new Map()));
+    m.set(pageIdx, (m.get(pageIdx) || 0) + 1);
+  };
+  pages.forEach((pageText, pageIdx) => {
+    for (const w of tokenize(pageText)) {
+      if (isContentWord(w)) bumpPage(unigramPages, w, pageIdx);
+    }
+  });
+  // The page where a candidate is most concentrated (ties -> earliest page).
+  const homePageOf = (words) => {
+    // Prefer the phrase's own page distribution when we have it.
+    const key = words.join(" ");
+    const pm = phrasePagesMap.get(key);
+    const pick = (m) => {
+      let best = -1, bestCount = -1;
+      for (const [p, c] of m) {
+        if (c > bestCount || (c === bestCount && (best === -1 || p < best))) {
+          best = p; bestCount = c;
+        }
+      }
+      return best;
+    };
+    if (pm && pm.size) return pick(pm);
+    // Otherwise the earliest page that contains every word of the candidate.
+    for (let p = 0; p < numPages; p++) {
+      if (words.every((w) => (unigramPages.get(w) || new Map()).has(p))) return p;
+    }
+    // Last resort: earliest page of the rarest (most distinctive) word.
+    let earliest = 0, rarity = Infinity;
+    for (const w of words) {
+      const wm = unigramPages.get(w);
+      if (!wm) continue;
+      const first = Math.min(...wm.keys());
+      const freq = unigramTF.get(w) || Infinity;
+      if (freq < rarity) { rarity = freq; earliest = first; }
+    }
+    return earliest;
+  };
 
   // 1b. Burstiness analysis — the key to separating real *topics* from the
   //     document's overall *theme*. Split the doc into fixed windows of
@@ -254,25 +311,31 @@ export function extractTopicsFromText(rawText, opts = {}) {
   //    must not yield the phantom topic "Node Linked").
   const phraseTF = new Map();
   let run = [];
+  let runPage = 0; // page index of the segment currently being scanned
   const flushRun = () => {
     for (let i = 0; i < run.length; i++) {
       for (let n = 2; n <= 3; n++) {
         if (i + n <= run.length) {
           const phrase = run.slice(i, i + n).join(" ");
           phraseTF.set(phrase, (phraseTF.get(phrase) || 0) + 1);
+          bumpPage(phrasePagesMap, phrase, runPage);
         }
       }
     }
     run = [];
   };
-  const segments = rawText.split(/[.,;:!?()[\]{}"'\u2018\u2019\u201C\u201D\n\r\u2022\u2013\u2014]+/);
-  for (const seg of segments) {
-    for (const w of tokenize(seg)) {
-      if (isContentWord(w)) run.push(w);
-      else flushRun(); // stop-word also breaks a phrase
+  // Iterate page-by-page so each phrase is attributed to the page it occurs on.
+  pages.forEach((pageText, pageIdx) => {
+    runPage = pageIdx;
+    const segs = pageText.split(/[.,;:!?()[\]{}"'\u2018\u2019\u201C\u201D\n\r\u2022\u2013\u2014]+/);
+    for (const seg of segs) {
+      for (const w of tokenize(seg)) {
+        if (isContentWord(w)) run.push(w);
+        else flushRun(); // stop-word also breaks a phrase
+      }
+      flushRun(); // segment boundary breaks a phrase
     }
-    flushRun(); // segment boundary breaks a phrase
-  }
+  });
 
   // 3. Heading candidates get a strong boost
   const headings = detectHeadings(rawText);
@@ -288,7 +351,12 @@ export function extractTopicsFromText(rawText, opts = {}) {
   const addCandidate = (normalized, display, score, words) => {
     const existing = candidates.get(normalized);
     if (!existing || score > existing.score) {
-      candidates.set(normalized, { display, score, words });
+      candidates.set(normalized, {
+        display,
+        score,
+        words,
+        homePage: homePageOf(words),
+      });
     }
   };
 
@@ -362,22 +430,74 @@ export function extractTopicsFromText(rawText, opts = {}) {
     });
   }
 
-  // 6. Greedy selection that suppresses near-duplicate / overlapping topics
-  //    (e.g. drop "Search Trees" when "Binary Search Trees" is already chosen).
+  // 6. Selection with near-duplicate / overlap suppression.
   //    Stems are used so singular/plural variants collapse to one.
   const chosen = [];
   const coveredStems = new Set();
   const chosenKeys = new Set();
-  for (const c of ranked) {
+
+  const tryChoose = (c) => {
     const stems = c.words.map(stem);
     const key = [...new Set(stems)].sort().join(" ");
-    if (chosenKeys.has(key)) continue; // exact (stemmed / reordered) duplicate
+    if (chosenKeys.has(key)) return false; // exact (stemmed / reordered) dup
     const overlap = stems.filter((s) => coveredStems.has(s)).length;
-    if (overlap / stems.length >= 0.6) continue;
+    if (overlap / stems.length >= 0.6) return false;
     chosen.push(c);
     chosenKeys.add(key);
     stems.forEach((s) => coveredStems.add(s));
-    if (chosen.length >= maxTopics) break;
+    return true;
+  };
+
+  if (numPages > 1 && ranked.length > finalCount) {
+    // Page-stratified selection. Without this, pure score order clusters every
+    // winner in the first few pages (intro/recap pages repeat terms heavily),
+    // so a 30-page PDF would return topics all from pages 1-8 — even when the
+    // user asked for only 5. We split the document into `finalCount` page
+    // buckets and take the strongest topic from EACH bucket, so the topics the
+    // user actually sees span the whole PDF. Remaining slots (up to maxTopics,
+    // the over-extraction pool for the AI verifier) are filled from the global
+    // ranking afterwards.
+    const bucketOf = (p) =>
+      Math.min(finalCount - 1, Math.floor((p * finalCount) / numPages));
+    const byBucket = Array.from({ length: finalCount }, () => []);
+    for (const c of ranked) byBucket[bucketOf(c.homePage ?? 0)].push(c);
+
+    // Pass 1: one strong topic per bucket, front to back → whole-PDF coverage.
+    const stratified = [];
+    for (const bucket of byBucket) {
+      if (stratified.length >= finalCount) break;
+      for (const c of bucket) {
+        if (tryChoose(c)) { stratified.push(c); break; }
+      }
+    }
+    // Pass 2: fill remaining bucket slots (empty/all-duplicate buckets) from
+    // the global ranking so we still surface finalCount spread-out topics.
+    if (stratified.length < finalCount) {
+      for (const c of ranked) {
+        if (stratified.length >= finalCount) break;
+        if (tryChoose(c)) stratified.push(c);
+      }
+    }
+    // Order the visible set by document flow — reads like the PDF's syllabus.
+    stratified.sort((a, b) => (a.homePage ?? 0) - (b.homePage ?? 0));
+    chosen.length = 0;
+    chosen.push(...stratified);
+
+    // Pass 3: pad the pool up to maxTopics (for the AI verifier) with the next
+    // best remaining candidates, still skipping near-duplicates.
+    if (chosen.length < maxTopics) {
+      for (const c of ranked) {
+        if (chosen.length >= maxTopics) break;
+        tryChoose(c);
+      }
+    }
+  } else {
+    // Single page, plain-text input, or fewer candidates than requested:
+    // original greedy-by-score behaviour.
+    for (const c of ranked) {
+      if (chosen.length >= maxTopics) break;
+      tryChoose(c);
+    }
   }
 
   if (chosen.length === 0) {
@@ -426,7 +546,7 @@ export function extractTopicsFromText(rawText, opts = {}) {
   //    do NOT fabricate quiz/confidence/last-studied here — the user enters those
   //    on the review form, and the decay engine then computes the real risk %.
   //    Difficulty is only a suggested default (editable by the user).
-  const maxScore = chosen[0].score || 1;
+  const maxScore = Math.max(...chosen.map((c) => c.score || 0)) || 1;
 
   // Normalised key for a final, title-level de-duplication. Cleaning + stemming
   // are applied AFTER the earlier greedy pass, so two candidates like
@@ -497,7 +617,9 @@ export async function extractTextFromPdf(file) {
       line += item.str + " ";
       lastY = y;
     }
-    fullText += line.trim() + "\n\n";
+    // "\f" (form feed) marks a page boundary so topic selection can be
+    // page-aware. It sits on its own line and is invisible to tokenization.
+    fullText += line.trim() + "\n\f\n";
   }
   return fullText;
 }

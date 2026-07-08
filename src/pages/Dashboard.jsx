@@ -72,20 +72,41 @@ const Dashboard = () => {
   // ───────────────────────────────────────────────────────────
 
   const metrics = [
-    { icon: Brain, glow: "124,108,255", title: "Memory retention", value: averageRetention, suffix: "%", sub: "Heuristic forecast index", color: "text-synapse-bright" },
-    { icon: Flame, glow: "246,181,69", title: "Study streak", value: streak, suffix: "", unit: "days", sub: "Active daily streak", color: "text-decaying" },
-    { icon: AlertTriangle, glow: "255,82,122", title: "High-risk topics", value: highRiskCount, suffix: "", sub: "Need revision now", color: "text-lost" },
-    { icon: Clock, glow: "56,214,255", title: "Study time", value: Number(studyTimeHours), suffix: "h", decimals: 1, sub: "Logged this week", color: "text-signal" },
+    { icon: Brain, glow: "16,185,129", title: "Memory retention", value: averageRetention, suffix: "%", sub: "Heuristic forecast index", color: "text-synapse-bright" },
+    { icon: Flame, glow: "245,158,11", title: "Study streak", value: streak, suffix: "", unit: "days", sub: "Active daily streak", color: "text-decaying" },
+    { icon: AlertTriangle, glow: "239,68,68", title: "High-risk topics", value: highRiskCount, suffix: "", sub: "Need revision now", color: "text-lost" },
+    { icon: Clock, glow: "13,148,136", title: "Study time", value: Number(studyTimeHours), suffix: "h", decimals: 1, sub: "Logged this week", color: "text-signal" },
   ];
 
   const dist = [
-    { label: "High risk · decay predicted", count: highRiskCount, color: "#ff527a" },
-    { label: "Medium risk", count: medRiskCount, color: "#f6b545" },
-    { label: "Low risk · retained", count: lowRiskCount, color: "#2fe0c0" },
+    { label: "High risk · decay predicted", count: highRiskCount, color: "#ef4444" },
+    { label: "Medium risk", count: medRiskCount, color: "#f59e0b" },
+    { label: "Low risk · retained", count: lowRiskCount, color: "#10b981" },
   ];
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="relative flex flex-col gap-8">
+      {/* faint closed-book watermark — centered, slightly tilted */}
+      <svg
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[24rem] w-[24rem] opacity-[0.055] sm:h-[30rem] sm:w-[30rem]"
+        style={{ transform: "translate(-50%, -50%) rotate(-12deg)" }}
+        viewBox="0 0 200 240"
+        fill="none"
+      >
+        {/* page edges peeking on the right */}
+        <rect x="150" y="30" width="16" height="182" rx="5" fill="#0d9488" />
+        <rect x="152" y="34" width="6" height="174" rx="3" fill="#ffffff" opacity="0.5" />
+        {/* front cover */}
+        <rect x="26" y="20" width="138" height="196" rx="12" fill="#10b981" />
+        {/* spine */}
+        <rect x="26" y="20" width="22" height="196" rx="10" fill="#0d9488" />
+        {/* title lines on the cover */}
+        <rect x="64" y="74" width="74" height="9" rx="4.5" fill="#ffffff" opacity="0.65" />
+        <rect x="64" y="96" width="52" height="9" rx="4.5" fill="#ffffff" opacity="0.4" />
+        {/* bookmark ribbon (amber, like the logo spark) */}
+        <path d="M118 20 v46 l-11 -11 l-11 11 v-46 z" fill="#facc15" />
+      </svg>
       {/* Header */}
       <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -108,11 +129,11 @@ const Dashboard = () => {
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 opacity-70"
-              style={{ background: "radial-gradient(70% 130% at 0% 0%, rgba(124,108,255,0.18), transparent 55%), radial-gradient(60% 120% at 100% 100%, rgba(56,214,255,0.14), transparent 55%)" }}
+              style={{ background: "radial-gradient(70% 130% at 0% 0%, rgba(16,185,129,0.14), transparent 55%), radial-gradient(60% 120% at 100% 100%, rgba(13,148,136,0.12), transparent 55%)" }}
             />
             <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#7c6cff,#a855f7)] text-xl font-bold text-white glow-synapse">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#10b981,#0d9488)] text-xl font-bold text-white glow-synapse">
                   {user.name ? user.name.charAt(0).toUpperCase() : "U"}
                 </div>
                 <div>
@@ -121,14 +142,14 @@ const Dashboard = () => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
-                <div className="flex items-center gap-3 rounded-2xl border border-line bg-black/20 px-5 py-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2 px-5 py-3">
                   <FileText size={18} className="text-synapse-bright" />
                   <div>
                     <div className="mono text-[10px] uppercase tracking-[0.12em] text-faint">Quizzes taken</div>
                     <div className="text-xl font-semibold">{quizHistory.length}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-line bg-black/20 px-5 py-3">
+                <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2 px-5 py-3">
                   <BookOpen size={18} className="text-signal" />
                   <div>
                     <div className="mono text-[10px] uppercase tracking-[0.12em] text-faint">Study sessions</div>
@@ -146,10 +167,6 @@ const Dashboard = () => {
         {metrics.map((m) => (
           <StaggerItem key={m.title}>
             <div className="group relative h-full overflow-hidden rounded-[var(--radius-lg)] border border-line glass p-5 transition-transform duration-300 hover:-translate-y-1">
-              <div
-                className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-40 blur-2xl transition-opacity group-hover:opacity-70"
-                style={{ background: `rgb(${m.glow})` }}
-              />
               <span
                 className="relative grid h-11 w-11 place-items-center rounded-xl"
                 style={{ background: `rgba(${m.glow},0.12)`, border: `1px solid rgba(${m.glow},0.3)` }}
@@ -180,7 +197,7 @@ const Dashboard = () => {
                   return (
                     <div key={d.day} className="flex flex-1 flex-col items-center gap-2">
                       <span className="mono text-[10px] text-muted">{d.hours}</span>
-                      <div className="relative flex w-full max-w-[34px] flex-1 items-end overflow-hidden rounded-lg bg-white/[0.04]">
+                      <div className="relative flex w-full max-w-[34px] flex-1 items-end overflow-hidden rounded-lg bg-emerald-50">
                         <motion.div
                           initial={{ height: 0 }}
                           whileInView={{ height: `${pct}%` }}
@@ -189,9 +206,9 @@ const Dashboard = () => {
                           className="w-full rounded-lg"
                           style={{
                             background: today
-                              ? "linear-gradient(180deg,#2fe0c0,#38d6ff)"
-                              : "linear-gradient(180deg,#7c6cff,#5a4fd6)",
-                            boxShadow: today ? "0 0 18px rgba(47,224,192,0.5)" : "none",
+                              ? "linear-gradient(180deg,#10b981,#059669)"
+                              : "linear-gradient(180deg,#5eead4,#2dd4bf)",
+                            boxShadow: today ? "0 0 18px rgba(16,185,129,0.45)" : "none",
                           }}
                         />
                       </div>
@@ -205,14 +222,12 @@ const Dashboard = () => {
 
           <Reveal>
             <Card title="Forget-risk distribution">
-              <div className="flex flex-col gap-5 pt-1">
+              <div className="flex flex-col gap-4 pt-1">
                 {dist.map((d) => (
-                  <div key={d.label}>
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="text-muted">{d.label}</span>
-                      <span className="mono font-semibold" style={{ color: d.color }}>{d.count}</span>
-                    </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/[0.05]">
+                  <div key={d.label} className="flex items-center gap-3">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: d.color }} />
+                    <span className="flex-1 truncate text-sm text-muted">{d.label}</span>
+                    <div className="h-2 w-24 shrink-0 overflow-hidden rounded-full bg-surface-2 sm:w-28">
                       <motion.div
                         initial={{ width: 0 }}
                         whileInView={{ width: `${(d.count / topicDivisor) * 100}%` }}
@@ -222,6 +237,7 @@ const Dashboard = () => {
                         style={{ background: d.color, boxShadow: `0 0 12px ${d.color}80` }}
                       />
                     </div>
+                    <span className="mono w-5 shrink-0 text-right text-sm font-semibold" style={{ color: d.color }}>{d.count}</span>
                   </div>
                 ))}
               </div>
@@ -269,7 +285,7 @@ const Dashboard = () => {
               ) : (
                 <div className="flex flex-col gap-2.5">
                   {upcomingRevisions.map((rev) => (
-                    <div key={rev.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-white/[0.02] px-4 py-3">
+                    <div key={rev.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface-2 px-4 py-3">
                       <div>
                         <div className="text-sm font-medium text-ink">{rev.title}</div>
                         <div className="text-xs text-faint">Studied {rev.daysElapsed} days ago</div>

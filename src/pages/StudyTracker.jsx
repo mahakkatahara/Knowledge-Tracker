@@ -11,6 +11,7 @@ import { refineTopics, canRefineWithAi } from "../utils/topicRefiner";
 import { AuthContext } from "../context/AuthContext";
 import { Reveal } from "../components/ui/Reveal";
 import RiskBadge from "../components/ui/RiskBadge";
+import StudyMascot from "../components/visual/StudyMascot";
 import { retentionColor, riskOf } from "../lib/risk";
 
 const StudyTracker = () => {
@@ -77,6 +78,10 @@ const StudyTracker = () => {
       const candidateCap = Math.min(60, Math.max(topicCount * 3, topicCount + 10));
       const { topics: rawCandidates, pageText } = await extractTopicsFromPdf(file, {
         maxTopics: candidateCap,
+        // Ensure the topicCount topics actually kept (by the AI verifier or the
+        // no-key slice fallback) are spread across the ENTIRE PDF, not clustered
+        // in the first few pages.
+        finalCount: topicCount,
       });
 
       if (!rawCandidates || rawCandidates.length === 0) {
@@ -258,7 +263,7 @@ const StudyTracker = () => {
 
   // ── styling helpers ──
   const fieldCls =
-    "w-full rounded-xl border border-line bg-black/30 px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-synapse/60 focus:ring-2 focus:ring-synapse/25";
+    "w-full rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-synapse/60 focus:ring-2 focus:ring-synapse/25";
   const labelCls = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-faint mono";
   const diffTone = { Easy: "text-retained", Medium: "text-decaying", Hard: "text-lost" };
 
@@ -302,7 +307,7 @@ const StudyTracker = () => {
                     "flex items-center gap-1 rounded-full border px-2 py-1 text-xs " +
                     (canRefineWithAi()
                       ? "border-synapse/40 bg-synapse/[0.08] text-synapse-bright"
-                      : "border-line bg-white/[0.03] text-faint")
+                      : "border-line bg-surface-2 text-faint")
                   }
                   title={
                     canRefineWithAi()
@@ -321,7 +326,7 @@ const StudyTracker = () => {
                 type="button"
                 onClick={() => !uploading && fileInputRef.current?.click()}
                 disabled={uploading}
-                className="group flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong bg-white/[0.02] px-4 py-8 text-sm text-muted transition hover:border-synapse/50 hover:bg-synapse/[0.05] disabled:cursor-not-allowed"
+                className="group flex w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong bg-surface-2 px-4 py-8 text-sm text-muted transition hover:border-synapse/50 hover:bg-synapse/[0.05] disabled:cursor-not-allowed"
               >
                 {uploading ? (
                   <>
@@ -330,7 +335,7 @@ const StudyTracker = () => {
                   </>
                 ) : (
                   <>
-                    <span className="grid h-12 w-12 place-items-center rounded-2xl border border-line bg-white/[0.03] transition group-hover:scale-110">
+                    <span className="grid h-12 w-12 place-items-center rounded-2xl border border-line bg-surface-2 transition group-hover:scale-110">
                       <UploadCloud size={22} className="text-signal" />
                     </span>
                     <span className="font-medium text-ink">Click to choose a PDF file</span>
@@ -370,11 +375,11 @@ const StudyTracker = () => {
 
                     <div className="mt-3 flex flex-col gap-2.5">
                       {pendingTopics.map((p, idx) => (
-                        <div key={p.id} className="rounded-2xl border border-line bg-white/[0.02] p-3">
+                        <div key={p.id} className="rounded-2xl border border-line bg-surface-2 p-3">
                           <div className="mb-2.5 flex items-center gap-2">
                             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-synapse/15 text-[11px] font-semibold text-synapse-bright mono">{idx + 1}</span>
                             <input
-                              className="w-full rounded-lg border border-line bg-black/30 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-synapse/60"
+                              className="w-full rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-sm text-ink outline-none focus:border-synapse/60"
                               value={p.title}
                               onChange={(e) => updatePending(p.id, "title", e.target.value)}
                             />
@@ -458,11 +463,12 @@ const StudyTracker = () => {
         </div>
 
         {/* ── Right: catalog ── */}
-        <Reveal>
-          <Card title="Active learning catalog">
+        <div className="flex flex-col gap-6">
+          <Reveal>
+            <Card title="Active learning catalog">
             {topics.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <span className="grid h-16 w-16 place-items-center rounded-2xl border border-line bg-white/[0.03]">
+                <span className="grid h-16 w-16 place-items-center rounded-2xl border border-line bg-surface-2">
                   <BookOpen size={30} className="text-faint" />
                 </span>
                 <p className="max-w-xs text-sm text-muted">No study logs yet. Use the form or upload a PDF to start tracking your retention.</p>
@@ -480,12 +486,12 @@ const StudyTracker = () => {
                       initial={{ opacity: 0, y: 14 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.4, delay: Math.min(index * 0.04, 0.3) }}
-                      className="rounded-2xl border bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.035]"
+                      className="rounded-2xl border bg-surface-2 p-4 transition-colors hover:bg-surface-2"
                       style={{ borderColor: tone.border }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
-                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.05] text-xs font-semibold text-muted mono">{index + 1}</span>
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface-2 text-xs font-semibold text-muted mono">{index + 1}</span>
                           <div>
                             <h4 className="font-medium text-ink">{topic.title}</h4>
                             <span className={`mono text-[11px] font-medium ${diffTone[topic.difficulty] || "text-muted"}`}>{topic.difficulty}</span>
@@ -501,7 +507,7 @@ const StudyTracker = () => {
                           { icon: Award, label: `Quiz ${topic.quizScore}%` },
                           { icon: Brain, label: `Ret ${retention}%`, accent: true },
                         ].map((d, i) => (
-                          <div key={i} className="flex items-center gap-1.5 rounded-lg border border-line bg-black/20 px-2.5 py-1.5 text-xs text-muted">
+                          <div key={i} className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-xs text-muted">
                             <d.icon size={13} style={{ color: d.accent ? retentionColor(retention) : undefined }} />
                             <span style={{ color: d.accent ? retentionColor(retention) : undefined }} className={d.accent ? "font-semibold" : ""}>{d.label}</span>
                           </div>
@@ -510,21 +516,21 @@ const StudyTracker = () => {
 
                       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                         <span className="flex items-center gap-1 text-faint"><GraduationCap size={13} /> Study:</span>
-                        <a href={studyLinks(topic.title).youtube} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg border border-line bg-white/[0.03] px-2 py-1 text-muted transition hover:border-lost/40 hover:text-lost">
+                        <a href={studyLinks(topic.title).youtube} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-2 py-1 text-muted transition hover:border-lost/40 hover:text-lost">
                           <PlayCircle size={13} /> YouTube
                         </a>
-                        <a href={studyLinks(topic.title).articles} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg border border-line bg-white/[0.03] px-2 py-1 text-muted transition hover:border-signal/40 hover:text-signal">
+                        <a href={studyLinks(topic.title).articles} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-2 py-1 text-muted transition hover:border-signal/40 hover:text-signal">
                           <Globe size={13} /> Articles
                         </a>
-                        <a href={studyLinks(topic.title).wikipedia} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg border border-line bg-white/[0.03] px-2 py-1 text-muted transition hover:border-synapse/40 hover:text-synapse-bright">
+                        <a href={studyLinks(topic.title).wikipedia} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 px-2 py-1 text-muted transition hover:border-synapse/40 hover:text-synapse-bright">
                           <BookOpen size={13} /> Wikipedia
                         </a>
                       </div>
 
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-                        <div className="flex items-center gap-2 rounded-full border border-line bg-black/20 px-3 py-1.5">
+                        <div className="flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-1.5">
                           <span className="text-xs text-muted">Revisions: <span className="font-semibold text-ink">{topic.revisionCount}</span></span>
-                          <button onClick={() => decrementRevision(topic.id)} title="Decrease revisions" className="grid h-6 w-6 place-items-center rounded-md bg-white/[0.05] text-muted transition hover:bg-white/[0.1] hover:text-ink">−</button>
+                          <button onClick={() => decrementRevision(topic.id)} title="Decrease revisions" className="grid h-6 w-6 place-items-center rounded-md bg-surface-2 text-muted transition hover:bg-emerald-100 hover:text-ink">−</button>
                           <button onClick={() => incrementRevision(topic.id)} title="Mark as revised today" className="grid h-6 w-6 place-items-center rounded-md bg-synapse/20 text-synapse-bright transition hover:bg-synapse/30">+</button>
                         </div>
                         <div className="flex items-center gap-3">
@@ -540,7 +546,21 @@ const StudyTracker = () => {
               </div>
             )}
           </Card>
-        </Reveal>
+          </Reveal>
+
+          {/* mascot fills the empty space at the bottom of the right column */}
+          <div className="mt-auto hidden flex-col items-center pt-4 lg:flex">
+            <div className="relative z-10 mb-[-3.25rem] max-w-[15rem] rounded-2xl bg-white px-4 py-2.5 text-center shadow-lg ring-1 ring-black/5">
+              <p className="text-[13px] font-semibold leading-snug text-slate-700">
+                {user
+                  ? `Nice, ${(user.name || "there").split(" ")[0]} — log your next session!`
+                  : "Log a session — I'll track the decay"}
+              </p>
+              <span className="absolute -bottom-1 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 bg-white" />
+            </div>
+            <StudyMascot className="h-72 w-auto drop-shadow-xl xl:h-80" />
+          </div>
+        </div>
       </div>
     </div>
   );

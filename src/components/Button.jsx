@@ -11,15 +11,15 @@ import { cn } from "../lib/cn";
  */
 const VARIANTS = {
   primary:
-    "text-white bg-[linear-gradient(100deg,#7c6cff,#38d6ff)] shadow-[0_8px_30px_-8px_rgba(124,108,255,0.7)] hover:shadow-[0_10px_40px_-8px_rgba(56,214,255,0.8)] border border-white/10",
+    "text-white bg-[linear-gradient(100deg,#10b981,#0d9488)] shadow-[0_8px_24px_-10px_rgba(16,185,129,0.6)] hover:shadow-[0_12px_32px_-10px_rgba(13,148,136,0.7)] border border-white/10",
   accent:
-    "text-[#04201c] bg-[linear-gradient(100deg,#2fe0c0,#38d6ff)] shadow-[0_8px_30px_-8px_rgba(47,224,192,0.7)] border border-white/10 font-semibold",
+    "text-white bg-[linear-gradient(100deg,#10b981,#0d9488)] shadow-[0_8px_24px_-10px_rgba(16,185,129,0.6)] border border-white/10 font-semibold",
   secondary:
-    "text-ink bg-white/[0.06] hover:bg-white/[0.10] border border-line backdrop-blur",
+    "text-ink bg-slate-100 hover:bg-slate-200 border border-line",
   danger:
-    "text-white bg-[linear-gradient(100deg,#ff527a,#ff8a5c)] shadow-[0_8px_30px_-8px_rgba(255,82,122,0.7)] border border-white/10",
+    "text-white bg-[linear-gradient(100deg,#ef4444,#f97316)] shadow-[0_8px_24px_-10px_rgba(239,68,68,0.6)] border border-white/10",
   outline:
-    "text-synapse-bright bg-transparent border border-[rgba(124,108,255,0.45)] hover:bg-[rgba(124,108,255,0.10)]",
+    "text-emerald-700 bg-transparent border border-emerald-500/50 hover:bg-emerald-50",
 };
 
 const SIZES = {

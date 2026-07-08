@@ -10,7 +10,7 @@ import { cn } from "../../lib/cn";
 export default function SpotlightCard({
   children,
   className,
-  glow = "124,108,255", // synapse, as "r,g,b"
+  glow = "16,185,129", // synapse (emerald), as "r,g,b"
   interactive = true,
   ...rest
 }) {
@@ -47,7 +47,7 @@ export default function SpotlightCard({
         <motion.div
           aria-hidden
           className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-300"
-          style={{ background: border, opacity: hovered ? 1 : 0, mixBlendMode: "screen" }}
+          style={{ background: border, opacity: hovered ? 1 : 0 }}
         />
       )}
       {/* inner mask so only the 1px rim shows the glow */}
@@ -57,8 +57,7 @@ export default function SpotlightCard({
           className="pointer-events-none absolute inset-[1px] rounded-[inherit]"
           style={{
             background:
-              "linear-gradient(180deg, rgba(16,19,31,0.86), rgba(9,11,20,0.92))",
-            backdropFilter: "blur(18px)",
+              "linear-gradient(180deg, #ffffff 0%, #f6faf8 100%)",
           }}
         />
       )}

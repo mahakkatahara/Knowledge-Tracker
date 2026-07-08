@@ -16,7 +16,7 @@ const Card = ({ title, actions, className = "", children, ...props }) => {
         <div className="px-5 pt-5 sm:px-6 sm:pt-6 mb-4 flex items-center justify-between gap-3">
           {title && (
             <div className="flex items-center gap-2.5">
-              <span className="h-4 w-1 rounded-full bg-[linear-gradient(180deg,#7c6cff,#38d6ff)]" />
+              <span className="h-4 w-1 rounded-full bg-[linear-gradient(180deg,#10b981,#0d9488)]" />
               <h3 className="font-display text-[15px] font-semibold tracking-tight text-ink">
                 {title}
               </h3>

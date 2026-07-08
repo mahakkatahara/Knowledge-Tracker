@@ -421,7 +421,7 @@ const ChatAssistant = () => {
                   <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl border ${bot ? "border-synapse/30 bg-synapse/15" : "border-retained/30 bg-retained/15"}`}>
                     {bot ? <Bot size={16} className="text-synapse-bright" /> : <User size={16} className="text-retained" />}
                   </span>
-                  <div className={`max-w-[80%] min-w-0 rounded-2xl border px-4 py-3 ${bot ? "rounded-bl-sm border-line bg-white/[0.03]" : "rounded-br-sm border-synapse/30 bg-synapse/[0.12]"}`}>
+                  <div className={`max-w-[80%] min-w-0 rounded-2xl border px-4 py-3 ${bot ? "rounded-bl-sm border-line bg-surface-2" : "rounded-br-sm border-synapse/30 bg-synapse/[0.12]"}`}>
                     <p className="flex flex-col whitespace-pre-wrap break-words text-sm leading-relaxed text-ink/95">{renderMessageText(msg.text)}</p>
                     <span className="mono mt-1.5 block text-[10px] text-faint">{msg.timestamp}</span>
                   </div>
@@ -431,7 +431,7 @@ const ChatAssistant = () => {
             <div ref={chatBottomRef} />
           </div>
 
-          <form onSubmit={handleSendMessage} className="flex items-end gap-2 border-t border-line bg-black/20 p-3">
+          <form onSubmit={handleSendMessage} className="flex items-end gap-2 border-t border-line bg-surface-2 p-3">
             <textarea
               ref={inputRef}
               rows={1}
@@ -444,9 +444,9 @@ const ChatAssistant = () => {
                   handleSendMessage(e);
                 }
               }}
-              className="max-h-40 min-w-0 flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-line bg-black/30 px-4 py-2.5 text-sm leading-relaxed text-ink outline-none transition focus:border-synapse/60 focus:ring-2 focus:ring-synapse/25"
+              className="max-h-40 min-w-0 flex-1 resize-none overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-line bg-surface-2 px-4 py-2.5 text-sm leading-relaxed text-ink outline-none transition focus:border-synapse/60 focus:ring-2 focus:ring-synapse/25"
             />
-            <button type="submit" title="Send message" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[linear-gradient(135deg,#7c6cff,#38d6ff)] text-white transition hover:opacity-90 glow-synapse">
+            <button type="submit" title="Send message" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[linear-gradient(135deg,#10b981,#0d9488)] text-white transition hover:opacity-90 glow-synapse">
               <Send size={17} />
             </button>
           </form>
@@ -463,7 +463,7 @@ const ChatAssistant = () => {
                 <button
                   key={i}
                   onClick={() => handleSuggestionClick(sug)}
-                  className="flex items-center gap-2.5 rounded-xl border border-line bg-white/[0.02] px-3.5 py-2.5 text-left text-sm text-muted transition hover:border-synapse/40 hover:bg-synapse/[0.06] hover:text-ink"
+                  className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-left text-sm text-muted transition hover:border-synapse/40 hover:bg-synapse/[0.06] hover:text-ink"
                 >
                   <HelpCircle size={15} className="shrink-0 text-faint" />
                   <span>{sug}</span>

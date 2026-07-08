@@ -11,3 +11,4 @@ faiss-cpu
 numpy
 nltk
 scikit-learn
+libsql

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import Logo from "../components/Logo";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -9,18 +9,9 @@ import Button from "../components/Button";
 import Magnetic from "../components/ui/Magnetic";
 import SpotlightCard from "../components/ui/SpotlightCard";
 import { Reveal, Stagger, StaggerItem } from "../components/ui/Reveal";
-import DecayCurve from "../components/visual/DecayCurve";
+import StudyMascot from "../components/visual/StudyMascot";
 import NumberTicker from "../components/ui/NumberTicker";
 import RiskBadge from "../components/ui/RiskBadge";
-
-const NeuralField = lazy(() => import("../components/visual/NeuralField"));
-
-/* Decide once, on the client, whether to mount the heavy 3D field:
-   skip it for reduced-motion users and small screens. */
-const CAN_RENDER_3D =
-  typeof window !== "undefined" &&
-  !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
-  window.innerWidth >= 768;
 
 const STEPS = [
   { n: "01", icon: Upload, title: "Log a study session", body: "Add topics by hand or drop a PDF — the app reads the whole document and extracts the key topics, then you enter quiz score and confidence." },
@@ -29,37 +20,42 @@ const STEPS = [
 ];
 
 const FEATURES = [
-  { icon: Brain, glow: "124,108,255", title: "Intelligent tracker", body: "Durations, difficulty, confidence and quiz scores roll up into one retention index across every topic." },
-  { icon: TrendingDown, glow: "255,82,122", title: "Decay forecasting", body: "See forgetting before it happens. Each topic glows in its own risk colour so priorities are obvious at a glance." },
-  { icon: BookOpen, glow: "47,224,192", title: "Smart study material", body: "Every topic links straight to curated YouTube, article and Wikipedia searches for instant, focused revision." },
+  { icon: Brain, glow: "16,185,129", title: "Intelligent tracker", body: "Durations, difficulty, confidence and quiz scores roll up into one retention index across every topic." },
+  { icon: TrendingDown, glow: "245,158,11", title: "Decay forecasting", body: "See forgetting before it happens. Each topic glows in its own risk colour so priorities are obvious at a glance." },
+  { icon: BookOpen, glow: "13,148,136", title: "Smart study material", body: "Every topic links straight to curated YouTube, article and Wikipedia searches for instant, focused revision." },
 ];
 
 export default function LandingPage() {
-  const show3D = CAN_RENDER_3D;
-
   return (
-    <div className="flex flex-col gap-28 sm:gap-36">
+    <div className="flex flex-col gap-16 sm:gap-24">
       {/* ───────────── HERO ───────────── */}
-      <section className="relative -mt-6 grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-        {/* 3D synaptic field */}
-        {show3D && (
-          <div className="pointer-events-none absolute inset-x-0 -top-24 hidden h-[120%] w-full opacity-90 md:block lg:left-1/4 lg:w-3/4">
-            <Suspense fallback={null}>
-              <NeuralField />
-            </Suspense>
-          </div>
-        )}
-
+      <section className="relative grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+        {/* faint closed-book watermark in the empty lower-left area */}
+        <svg
+          aria-hidden
+          className="pointer-events-none absolute left-[27%] top-1/2 z-0 hidden h-[24rem] w-[24rem] opacity-[0.08] lg:block xl:h-[27rem] xl:w-[27rem]"
+          style={{ transform: "translate(-50%, -50%) rotate(-10deg)" }}
+          viewBox="0 0 200 240"
+          fill="none"
+        >
+          <rect x="150" y="30" width="16" height="182" rx="5" fill="#0d9488" />
+          <rect x="152" y="34" width="6" height="174" rx="3" fill="#ffffff" opacity="0.5" />
+          <rect x="26" y="20" width="138" height="196" rx="12" fill="#10b981" />
+          <rect x="26" y="20" width="22" height="196" rx="10" fill="#0d9488" />
+          <rect x="64" y="74" width="74" height="9" rx="4.5" fill="#ffffff" opacity="0.65" />
+          <rect x="64" y="96" width="52" height="9" rx="4.5" fill="#ffffff" opacity="0.4" />
+          <path d="M118 20 v46 l-11 -11 l-11 11 v-46 z" fill="#facc15" />
+        </svg>
         <div className="relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-line bg-white/[0.04] px-3.5 py-1.5"
+            className="inline-flex items-center gap-2 rounded-full border border-line bg-surface-2 px-3.5 py-1.5"
           >
             <Sparkles size={14} className="text-signal" />
             <span className="mono text-[11px] tracking-[0.18em] text-muted">
-              AI MEMORY-DECAY FORECASTING
+              MEMORY-DECAY FORECASTING
             </span>
           </motion.div>
 
@@ -67,7 +63,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.08 }}
-            className="mt-6 text-5xl font-semibold leading-[0.98] sm:text-6xl lg:text-7xl"
+            className="mt-5 text-5xl font-semibold leading-[0.98] sm:text-6xl lg:text-6xl"
           >
             Stop cramming.
             <br />
@@ -78,7 +74,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.16 }}
-            className="mt-6 max-w-xl text-lg leading-relaxed text-muted"
+            className="mt-4 max-w-xl text-base leading-relaxed text-muted"
           >
             Decay tracks how your knowledge fades on the Ebbinghaus forgetting curve,
             forecasts which topics you're about to lose, and tells you exactly what to
@@ -89,7 +85,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.24 }}
-            className="mt-9 flex flex-wrap items-center gap-3"
+            className="mt-7 flex flex-wrap items-center gap-3"
           >
             <Magnetic>
               <Link to="/dashboard">
@@ -109,7 +105,7 @@ export default function LandingPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
-            className="mt-12 flex flex-wrap gap-8"
+            className="mt-8 flex flex-wrap gap-6"
           >
             {[
               { v: 90, s: "%", label: "of forgetting happens in days" },
@@ -126,37 +122,100 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Live curve panel */}
+        {/* Brand panel */}
         <motion.div
-          initial={{ opacity: 0, y: 30, rotateX: 8 }}
-          animate={{ opacity: 1, y: 0, rotateX: 0 }}
-          transition={{ duration: 0.9, delay: 0.3 }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
           className="relative z-10"
         >
-          <SpotlightCard className="p-6" glow="56,214,255">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-retained animate-pulse-glow" />
-                <span className="mono text-[11px] tracking-[0.2em] text-muted">
-                  FORGETTING CURVE · LIVE
+          <div className="relative overflow-hidden rounded-[26px] bg-emerald-500 p-8 text-white shadow-[0_30px_70px_-34px_rgba(16,185,129,0.6)]">
+            <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 460 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <circle cx="70" cy="80" r="72" fill="#0d9488" opacity="0.5" />
+              <circle cx="420" cy="120" r="26" fill="#facc15" />
+              <circle cx="430" cy="470" r="18" fill="#2dd4bf" />
+              <circle cx="40" cy="430" r="9" fill="#ffffff" opacity="0.6" />
+              <path d="M330 300 q22 -20 44 0 t44 0" fill="none" stroke="#ffffff" strokeOpacity="0.4" strokeWidth="3" strokeLinecap="round" />
+              {/* floating tilted book, top-right */}
+              <g transform="translate(372 44) rotate(14)" opacity="0.9">
+                <rect x="0" y="0" width="46" height="34" rx="4" fill="#0b3b32" opacity="0.55" />
+                <rect x="0" y="0" width="7" height="34" fill="#facc15" opacity="0.8" />
+              </g>
+            </svg>
+
+            <div className="relative z-10 flex items-center justify-between">
+              <Logo size={40} tone="light" />
+              <span className="rounded-full bg-emerald-950/25 px-3 py-1 text-[11px] font-semibold tracking-wide text-white">
+                Beat the curve
+              </span>
+            </div>
+
+            <div className="relative z-10 mt-6 flex items-end justify-between gap-4">
+              <div>
+                <div className="font-display text-3xl font-bold leading-[1.05] text-emerald-950">
+                  Your memory,<br />mapped.
+                </div>
+                <p className="mt-3 max-w-[15rem] text-sm font-medium text-white/90">
+                  Every topic sorted into a risk tier, so you always know what to revise next.
+                </p>
+              </div>
+              <StudyMascot className="hidden h-40 w-auto shrink-0 drop-shadow-xl sm:block" />
+            </div>
+
+            {/* retention strip — live overall score + decay sparkline */}
+            <div className="relative z-10 mt-6 flex items-center gap-4 rounded-2xl bg-emerald-950/15 p-4 ring-1 ring-white/15 backdrop-blur-sm">
+              <div>
+                <div className="mono text-[10px] uppercase tracking-[0.2em] text-white/70">
+                  Overall retention
+                </div>
+                <div className="font-display text-3xl font-bold leading-none text-white">
+                  <NumberTicker value={84} suffix="%" />
+                </div>
+              </div>
+              <div className="ml-auto flex flex-col items-end gap-1.5">
+                <svg width="112" height="40" viewBox="0 0 112 40" fill="none" aria-hidden="true">
+                  <path d="M2 6 C 26 8, 40 20, 58 26 S 92 36, 110 37" stroke="#ffffff" strokeOpacity="0.85" strokeWidth="2.5" strokeLinecap="round" />
+                  <path d="M2 6 C 26 8, 40 20, 58 26 S 92 36, 110 37 L110 40 L2 40 Z" fill="#ffffff" fillOpacity="0.12" />
+                  <circle cx="2" cy="6" r="3" fill="#facc15" />
+                  <circle cx="110" cy="37" r="3" fill="#f59e0b" />
+                </svg>
+                <span className="mono text-[9px] uppercase tracking-[0.18em] text-white/60">
+                  forgetting curve
                 </span>
               </div>
-              <span className="mono text-[11px] text-faint">R = e⁻ᵗ/S</span>
             </div>
-            <DecayCurve retention={62} className="h-48 w-full" />
-            <div className="mt-5 grid grid-cols-3 gap-2">
+
+            <div className="relative z-10 mt-4 grid grid-cols-3 gap-2">
               {[
-                { label: "Binary Search", risk: "Low" },
-                { label: "Graph Algos", risk: "Medium" },
-                { label: "Dynamic Prog.", risk: "High" },
+                { label: "Binary Search", risk: "Low", meter: 1 },
+                { label: "Graph Algos", risk: "Medium", meter: 2 },
+                { label: "Dynamic Prog.", risk: "High", meter: 3 },
               ].map((t) => (
-                <div key={t.label} className="rounded-xl border border-line bg-white/[0.02] p-3">
-                  <div className="truncate text-xs text-muted">{t.label}</div>
+                <div key={t.label} className="rounded-xl bg-white/95 p-3">
+                  <div className="truncate text-xs font-medium text-slate-500">{t.label}</div>
                   <div className="mt-2"><RiskBadge risk={t.risk} withDot={false} /></div>
+                  <div className="mt-2.5 flex gap-1">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="h-1 flex-1 rounded-full"
+                        style={{
+                          background:
+                            i < t.meter
+                              ? t.meter === 1
+                                ? "#10b981"
+                                : t.meter === 2
+                                ? "#f59e0b"
+                                : "#ef4444"
+                              : "#e2e8f0",
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
-          </SpotlightCard>
+          </div>
         </motion.div>
       </section>
 
@@ -178,10 +237,10 @@ export default function LandingPage() {
             <StaggerItem key={s.n}>
               <SpotlightCard className="h-full p-7">
                 <div className="flex items-center justify-between">
-                  <span className="grid h-12 w-12 place-items-center rounded-2xl border border-line bg-white/[0.04]">
-                    <s.icon size={20} className="text-signal" />
+                  <span className="grid h-12 w-12 place-items-center rounded-2xl border border-emerald-100 bg-emerald-50">
+                    <s.icon size={20} className="text-emerald-600" />
                   </span>
-                  <span className="font-display text-4xl font-semibold text-white/10">{s.n}</span>
+                  <span className="font-display text-4xl font-semibold text-emerald-950/[0.08]">{s.n}</span>
                 </div>
                 <h3 className="mt-5 text-lg font-semibold">{s.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{s.body}</p>
@@ -224,8 +283,8 @@ export default function LandingPage() {
         </Reveal>
 
         <Reveal>
-          <SpotlightCard className="overflow-hidden p-0" glow="124,108,255">
-            <div className="flex items-center gap-2 border-b border-line bg-white/[0.02] px-5 py-3">
+          <SpotlightCard className="overflow-hidden p-0" glow="16,185,129">
+            <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-5 py-3">
               <span className="h-3 w-3 rounded-full bg-lost/80" />
               <span className="h-3 w-3 rounded-full bg-decaying/80" />
               <span className="h-3 w-3 rounded-full bg-retained/80" />
@@ -234,18 +293,18 @@ export default function LandingPage() {
               </span>
             </div>
             <div className="grid gap-6 p-6 md:grid-cols-2">
-              <div className="rounded-2xl border border-line bg-white/[0.02] p-5">
+              <div className="rounded-2xl border border-line bg-surface-2 p-5">
                 <div className="text-sm text-muted">Memory retention score</div>
                 <div className="mt-1 font-display text-5xl font-semibold text-gradient">
                   <NumberTicker value={84} suffix="%" />
                 </div>
-                <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-emerald-100">
                   <motion.div
                     initial={{ width: 0 }}
                     whileInView={{ width: "84%" }}
                     viewport={{ once: true }}
                     transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full rounded-full bg-[linear-gradient(90deg,#7c6cff,#38d6ff,#2fe0c0)]"
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#10b981,#0d9488)]"
                   />
                 </div>
               </div>
@@ -255,7 +314,7 @@ export default function LandingPage() {
                   { t: "Graph Algorithms", r: "Medium" },
                   { t: "Binary Search", r: "Low" },
                 ].map((row) => (
-                  <div key={row.t} className="flex items-center justify-between rounded-xl border border-line bg-white/[0.02] px-4 py-3">
+                  <div key={row.t} className="flex items-center justify-between rounded-xl border border-line bg-surface-2 px-4 py-3">
                     <span className="text-sm text-ink">{row.t}</span>
                     <RiskBadge risk={row.r} />
                   </div>
@@ -271,7 +330,7 @@ export default function LandingPage() {
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ background: "radial-gradient(60% 120% at 50% 0%, rgba(124,108,255,0.25), transparent 60%)" }}
+          style={{ background: "radial-gradient(60% 120% at 50% 0%, rgba(16,185,129,0.22), transparent 60%)" }}
         />
         <Reveal className="relative z-10">
           <Bot size={34} className="mx-auto text-signal" />

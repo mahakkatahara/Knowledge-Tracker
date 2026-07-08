@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Lock, Mail, User, AlertCircle, CheckCircle, Activity, Loader2 } from "lucide-react";
-import Button from "../components/Button";
-import SpotlightCard from "../components/ui/SpotlightCard";
-import DecayCurve from "../components/visual/DecayCurve";
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import Logo from "../components/Logo";
+import StudyMascot from "../components/visual/StudyMascot";
+import AuthDecor from "../components/visual/AuthDecor";
+import RevisionQueueCard from "../components/visual/RevisionQueueCard";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -49,10 +49,10 @@ const Signup = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        setSuccess("Registration successful! Redirecting to login...");
+        setSuccess("Account created! Redirecting to sign in...");
         setTimeout(() => {
           navigate("/login");
-        }, 2000);
+        }, 1600);
       } else {
         setError(data.detail || "Registration failed. Please try again.");
       }
@@ -64,128 +64,146 @@ const Signup = () => {
   };
 
   const field =
-    "w-full rounded-xl border border-line bg-black/30 py-3 pl-11 pr-3 text-sm text-ink outline-none transition focus:border-synapse/60 focus:ring-2 focus:ring-synapse/25";
+    "w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-200";
 
   return (
-    <div className="grid min-h-[72vh] items-center gap-10 lg:grid-cols-2">
-      {/* Brand panel */}
-      <motion.div
-        initial={{ opacity: 0, x: -24 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.7 }}
-        className="hidden lg:block"
-      >
-        <span className="eyebrow">Retention Lab</span>
-        <h2 className="mt-4 text-5xl font-semibold leading-tight">
-          Build a memory that <span className="text-gradient">doesn't fade</span>.
-        </h2>
-        <p className="mt-4 max-w-md text-muted">
-          Create an account and start charting your forgetting curves. Every topic you
-          add gets a live retention score from day one.
-        </p>
-        <div className="mt-10 grid grid-cols-3 gap-3">
-          {[
-            { k: "Retained", c: "text-retained" },
-            { k: "Decaying", c: "text-decaying" },
-            { k: "At risk", c: "text-lost" },
-          ].map((b) => (
-            <div key={b.k} className="rounded-2xl border border-line glass p-4 text-center">
-              <div className={`font-display text-lg font-semibold ${b.c}`}>●</div>
-              <div className="mt-1 text-xs text-muted">{b.k}</div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-6 rounded-2xl border border-line glass p-5">
-          <DecayCurve retention={74} className="h-32 w-full" />
-        </div>
-      </motion.div>
+    <div className="grid min-h-screen w-full lg:h-screen lg:overflow-hidden lg:grid-cols-[minmax(0,44%)_minmax(0,56%)]">
+      {/* ── LEFT · brand panel ─────────────────────────── */}
+      <div className="relative hidden overflow-hidden bg-emerald-500 p-10 lg:flex lg:flex-col">
+        <AuthDecor />
 
-      {/* Form */}
-      <motion.div
-        initial={{ opacity: 0, y: 26 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, delay: 0.1 }}
-        className="mx-auto w-full max-w-md"
-      >
-        <SpotlightCard className="p-8 sm:p-10" glow="47,224,192">
-          <div className="mb-8 text-center">
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#7c6cff,#38d6ff)] glow-synapse">
-              <Activity size={26} className="text-white" />
-            </span>
-            <h1 className="mt-5 text-2xl font-semibold">Create account</h1>
-            <p className="mt-1 text-sm text-muted">Start tracking your knowledge retention</p>
+        <div className="relative z-10">
+          <Logo size={42} tone="light" />
+          <h1 className="mt-6 text-5xl font-extrabold leading-[1.0] tracking-tight text-emerald-950">
+            Start<br />remembering.
+          </h1>
+          <p className="mt-4 max-w-[17rem] text-sm font-medium leading-relaxed text-white/90">
+            Track every topic and let us predict what you&apos;re about to forget.
+          </p>
+
+          {/* quick stats */}
+          <div className="mt-5 flex gap-6">
+            {[
+              { v: "90%", l: "forgotten in days" },
+              { v: "3", l: "risk tiers" },
+              { v: "100%", l: "on-device" },
+            ].map((s) => (
+              <div key={s.l}>
+                <div className="font-display text-2xl font-bold leading-none text-white">{s.v}</div>
+                <div className="mt-1 text-[11px] font-medium text-white/70">{s.l}</div>
+              </div>
+            ))}
           </div>
+        </div>
+
+        <RevisionQueueCard className="relative z-10 mt-5" />
+
+        <div className="relative z-10 mt-auto flex justify-end pt-4">
+          <div className="relative -mr-3">
+            <StudyMascot className="h-44 w-auto drop-shadow-xl" />
+            <div className="absolute -left-16 top-7 rounded-2xl bg-white px-3.5 py-2 shadow-lg">
+              <p className="text-[12px] font-semibold leading-snug text-slate-700">
+                Never lose a<br />topic again
+              </p>
+              <span className="absolute -right-1 bottom-4 h-3 w-3 rotate-45 bg-white" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT · form ───────────────────────────────── */}
+      <div className="flex items-center justify-center overflow-y-auto bg-white px-6 py-8 sm:px-12">
+        <div className="w-full max-w-md">
+          <div className="mb-8 lg:hidden">
+            <Logo size={34} />
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Create account</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Already a member?{" "}
+            <Link to="/login" className="font-semibold text-emerald-600 hover:text-emerald-700">
+              Sign in
+            </Link>
+          </p>
 
           {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-5 flex items-center gap-2 rounded-xl border border-lost/30 bg-lost/10 px-4 py-3 text-sm text-lost"
-            >
+            <div className="mt-6 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
               <AlertCircle size={18} className="shrink-0" />
               <span>{error}</span>
-            </motion.div>
+            </div>
           )}
           {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-5 flex items-center gap-2 rounded-xl border border-retained/30 bg-retained/10 px-4 py-3 text-sm text-retained"
-            >
+            <div className="mt-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
               <CheckCircle size={18} className="shrink-0" />
               <span>{success}</span>
-            </motion.div>
+            </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-muted">Full name</label>
-              <div className="relative">
-                <User size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-                <input type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} className={field} />
-              </div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">Full name</label>
+              <input
+                type="text"
+                placeholder="Ada Lovelace"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={field}
+              />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-medium text-muted">Email address</label>
-              <div className="relative">
-                <Mail size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-                <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className={field} />
-              </div>
+              <label className="mb-2 block text-sm font-semibold text-slate-700">Email</label>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={field}
+              />
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-muted">Password</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-                <input type="password" placeholder="Minimum 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} className={field} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">Password</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={field}
+                />
               </div>
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-muted">Confirm password</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-faint" />
-                <input type="password" placeholder="Re-enter password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={field} />
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-slate-700">Confirm</label>
+                <input
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={field}
+                />
               </div>
             </div>
 
-            <Button type="submit" variant="accent" disabled={loading} className="mt-3 w-full">
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:opacity-60"
+            >
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin" /> Creating account...
                 </>
               ) : (
-                "Sign Up"
+                "Create account"
               )}
-            </Button>
+            </button>
           </form>
 
-          <p className="mt-7 text-center text-sm text-muted">
-            Already have an account?{" "}
-            <Link to="/login" className="font-semibold text-signal hover:text-synapse-bright">
-              Log In
-            </Link>
-          </p>
-        </SpotlightCard>
-      </motion.div>
+          <div className="mt-6 flex items-center gap-5 text-xs font-medium text-emerald-600">
+            <Link to="/" className="hover:text-emerald-700">Terms</Link>
+            <Link to="/" className="hover:text-emerald-700">Privacy</Link>
+            <Link to="/" className="hover:text-emerald-700">Contact</Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

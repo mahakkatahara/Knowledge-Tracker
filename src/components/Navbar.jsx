@@ -3,11 +3,12 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Menu, X, LayoutDashboard, Calendar, ClipboardCheck,
-  MessageSquare, Home, LogOut, Activity,
+  MessageSquare, Home, LogOut,
 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { cn } from "../lib/cn";
 import Button from "./Button";
+import Logo from "./Logo";
 
 const LINKS = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -49,17 +50,11 @@ const Navbar = () => {
           "flex w-full max-w-6xl items-center justify-between gap-2 rounded-full border px-3 py-2 transition-all duration-300 sm:px-4",
           scrolled
             ? "glass-strong border-line-strong shadow-[0_18px_50px_-22px_rgba(0,0,0,0.9)]"
-            : "border-line bg-white/[0.03] backdrop-blur-md"
+            : "border-line bg-surface-2 backdrop-blur-md"
         )}
       >
-        <Link to="/" onClick={closeMenu} className="flex items-center gap-2.5 pl-1">
-          <span className="relative grid h-9 w-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#7c6cff,#38d6ff)] glow-synapse">
-            <Activity size={17} className="text-white" strokeWidth={2.5} />
-          </span>
-          <span className="leading-none">
-            <span className="block font-display text-[15px] font-semibold tracking-tight text-ink">Decay</span>
-            <span className="mono block text-[9px] tracking-[0.28em] text-faint">RETENTION&nbsp;LAB</span>
-          </span>
+        <Link to="/" onClick={closeMenu} className="pl-1">
+          <Logo size={36} />
         </Link>
 
         <ul className="hidden items-center gap-0.5 lg:flex">
@@ -71,7 +66,7 @@ const Navbar = () => {
                     {isActive && (
                       <motion.span
                         layoutId="nav-pill"
-                        className="absolute inset-0 -z-10 rounded-full border border-line-strong bg-white/[0.06]"
+                        className="absolute inset-0 -z-10 rounded-full border border-line-strong bg-emerald-50"
                         transition={{ type: "spring", stiffness: 380, damping: 30 }}
                       />
                     )}
@@ -102,7 +97,7 @@ const Navbar = () => {
           )}
 
           <button
-            className="grid h-9 w-9 place-items-center rounded-full border border-line bg-white/[0.04] text-ink lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface-2 text-ink lg:hidden"
             onClick={() => setIsOpen((v) => !v)}
             aria-label="Toggle menu"
           >
@@ -129,7 +124,7 @@ const Navbar = () => {
                       className={({ isActive }) =>
                         cn(
                           "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors",
-                          isActive ? "bg-white/[0.07] text-ink" : "text-muted hover:bg-white/[0.04]"
+                          isActive ? "bg-emerald-50 text-ink" : "text-muted hover:bg-surface-2"
                         )
                       }
                     >
