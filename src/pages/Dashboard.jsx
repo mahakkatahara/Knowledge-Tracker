@@ -6,7 +6,8 @@ import useLocalStorage from "../hooks/useLocalStorage";
 import { INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { getRevisionRecommendations, getDaysElapsed, REFERENCE_DATE } from "../utils/decayEngine";
+import { getRevisionRecommendations, localTodayISO } from "../utils/decayEngine";
+import { withDerivedSessions, weeklyStats, computeStreak } from "../utils/sessionLog";
 import { AuthContext } from "../context/AuthContext";
 import { Reveal, Stagger, StaggerItem } from "../components/ui/Reveal";
 import NumberTicker from "../components/ui/NumberTicker";
@@ -17,9 +18,14 @@ const Dashboard = () => {
   const uid = user?.email || "guest";
   const [topics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
   const [quizHistory] = useLocalStorage(`kt_quiz_history::${uid}`, []);
+  const [sessions] = useLocalStorage(`kt_sessions::${uid}`, []);
 
-  // ── business logic (unchanged) ─────────────────────────────
-  const annotatedTopics = getRevisionRecommendations(topics);
+  // A single, live "today" (local) used for every date calculation on this page,
+  // so "days ago", streak and the weekly chart never drift out of sync.
+  const today = localTodayISO();
+
+  // ── business logic ─────────────────────────────────────────
+  const annotatedTopics = getRevisionRecommendations(topics, today);
 
   const highRiskTopics = annotatedTopics.filter((t) => t.risk === "High");
   const highRiskCount = highRiskTopics.length;
@@ -33,42 +39,14 @@ const Dashboard = () => {
 
   const topicDivisor = Math.max(1, topics.length);
 
-  const studyTimeHours = (
-    topics
-      .filter((t) => getDaysElapsed(t.lastStudied) <= 7)
-      .reduce((sum, t) => sum + (Number(t.duration) || 0), 0) / 60
-  ).toFixed(1);
-
-  const computeStreak = () => {
-    const days = new Set(topics.map((t) => t.lastStudied).filter(Boolean));
-    if (days.size === 0) return 0;
-    let streak = 0;
-    let cursor = new Date(REFERENCE_DATE);
-    const isoOf = (d) => d.toISOString().split("T")[0];
-    if (!days.has(isoOf(cursor))) {
-      const sorted = [...days].sort().reverse();
-      cursor = new Date(sorted[0]);
-    }
-    while (days.has(isoOf(cursor))) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-    return streak;
-  };
-  const streak = computeStreak();
-
-  const weekOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const hoursByDay = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
-  const jsDayToLabel = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  topics.forEach((t) => {
-    if (!t.lastStudied) return;
-    if (getDaysElapsed(t.lastStudied) > 7) return;
-    const label = jsDayToLabel[new Date(t.lastStudied).getDay()];
-    hoursByDay[label] += (Number(t.duration) || 0) / 60;
-  });
-  const barData = weekOrder.map((day) => ({ day, hours: Math.round(hoursByDay[day] * 10) / 10 }));
+  // Real study time & streak come from the append-only session log — one record
+  // per actual study/revision/quiz event — NOT from re-bucketing each topic's
+  // single static `duration`. `withDerivedSessions` backfills a session for any
+  // older topic that predates the log, so nothing silently disappears.
+  const allSessions = withDerivedSessions(sessions, topics);
+  const { weekHours: studyTimeHours, barData, todayLabel } = weeklyStats(allSessions, today);
+  const streak = computeStreak(allSessions, today);
   const maxHours = Math.max(5, ...barData.map((b) => b.hours));
-  const todayLabel = jsDayToLabel[new Date(REFERENCE_DATE).getDay()];
   // ───────────────────────────────────────────────────────────
 
   const metrics = [
@@ -117,7 +95,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-2 rounded-full border border-line glass px-4 py-2 text-sm text-muted">
           <Calendar size={15} className="text-signal" />
           <span className="mono text-xs">
-            {new Date(REFERENCE_DATE + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            {new Date(today + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           </span>
         </div>
       </Reveal>
@@ -222,7 +200,7 @@ const Dashboard = () => {
 
           <Reveal>
             <Card title="Forget-risk distribution">
-              <div>
+              <div className="px-5 pb-6 sm:px-6">
                 {topics.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted">
                     No topics yet — add some in the tracker to see your risk breakdown.
