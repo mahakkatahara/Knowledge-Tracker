@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, EmailStr, Field
+import os
+import logging
 import sqlite3
+import httpx
 from typing import Generator
 from backend.database.database import get_db_connection
 from backend.services import auth_service
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/auth")
 
@@ -15,6 +20,9 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+class GoogleAuthRequest(BaseModel):
+    access_token: str = Field(..., description="Google OAuth access token from the frontend popup")
 
 def get_db() -> Generator[sqlite3.Connection, None, None]:
     """
@@ -43,6 +51,7 @@ def register(payload: RegisterRequest, db: sqlite3.Connection = Depends(get_db))
             detail=str(e)
         )
     except Exception as e:
+        logger.exception("Registration failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during registration. Please try again."
@@ -66,6 +75,77 @@ def login(payload: LoginRequest, db: sqlite3.Connection = Depends(get_db)):
     # Generate token
     token = auth_service.create_jwt({"user_id": user.id, "email": user.email})
     
+    return {
+        "message": "Login successful",
+        "token": token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "name": user.name
+        }
+    }
+
+
+@router.post("/google")
+def google_login(payload: GoogleAuthRequest, db: sqlite3.Connection = Depends(get_db)):
+    """
+    Endpoint for Google Sign-In.
+    1. Verifies the access token with Google (tokeninfo) and checks it was
+       issued for THIS app (audience must match GOOGLE_CLIENT_ID).
+    2. Fetches the verified Google profile (email, name).
+    3. Finds or creates the user, then returns the same JWT payload as /login.
+    """
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    if not google_client_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google sign-in is not configured on the server (GOOGLE_CLIENT_ID env var missing)."
+        )
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            # Step 1: validate the token and its audience
+            token_resp = client.get(
+                "https://www.googleapis.com/oauth2/v3/tokeninfo",
+                params={"access_token": payload.access_token}
+            )
+            token_info = token_resp.json()
+            if token_resp.status_code != 200 or token_info.get("aud") != google_client_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid Google token."
+                )
+
+            # Step 2: fetch the verified profile
+            userinfo_resp = client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {payload.access_token}"}
+            )
+            if userinfo_resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Could not fetch your Google profile."
+                )
+            info = userinfo_resp.json()
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not reach Google to verify the sign-in. Please try again."
+        )
+
+    email = info.get("email")
+    if not email or not info.get("email_verified", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your Google account email is not verified."
+        )
+
+    # Step 3: find or create the user and issue our JWT
+    user = auth_service.get_or_create_oauth_user(db, info.get("name") or "", email)
+    token = auth_service.create_jwt({"user_id": user.id, "email": user.email})
+
     return {
         "message": "Login successful",
         "token": token,

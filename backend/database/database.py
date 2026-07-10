@@ -8,7 +8,13 @@ Behaviour:
 
 Both branches expose the same API the rest of the app already uses:
   conn.cursor(), cursor.execute(sql, params), cursor.fetchone()/fetchall(),
-  row["column_name"] access, cursor.lastrowid, conn.commit(), conn.close().
+  row["column_name"] AND row[0] access, row.keys(), cursor.lastrowid,
+  conn.commit(), conn.close().
+
+Turso note:
+  libsql returns plain tuple rows that do NOT support name-based access
+  (row["id"]). Since the whole app reads columns by name, we wrap the libsql
+  connection so its cursors return dict-like rows that behave like sqlite3.Row.
 """
 
 import os
@@ -23,13 +29,123 @@ TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 _USING_TURSO = bool(TURSO_DATABASE_URL)
 
 
+class _Row:
+    """
+    Row supporting name access (row["id"]), positional access (row[0]),
+    membership (`"id" in row`) and .keys() — so libsql rows behave exactly
+    like sqlite3.Row for the rest of the app.
+    """
+    __slots__ = ("_values", "_data")
+
+    def __init__(self, columns, values):
+        self._values = list(values)
+        self._data = {col: self._values[i] for i, col in enumerate(columns)}
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._values[key]
+        return self._data[key]
+
+    def __contains__(self, key):
+        return key in self._data
+
+    def keys(self):
+        return list(self._data.keys())
+
+    def get(self, key, default=None):
+        return self._data.get(key, default)
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self):
+        return len(self._values)
+
+
+class _Cursor:
+    """Thin wrapper making a libsql cursor return _Row objects."""
+
+    def __init__(self, cursor):
+        self._c = cursor
+
+    def execute(self, sql, params=None):
+        if params is None:
+            self._c.execute(sql)
+        else:
+            self._c.execute(sql, params)
+        return self
+
+    def executemany(self, sql, seq):
+        self._c.executemany(sql, seq)
+        return self
+
+    @property
+    def description(self):
+        return self._c.description
+
+    @property
+    def lastrowid(self):
+        return self._c.lastrowid
+
+    @property
+    def rowcount(self):
+        return getattr(self._c, "rowcount", -1)
+
+    def _cols(self):
+        desc = self._c.description
+        return [d[0] for d in desc] if desc else []
+
+    def fetchone(self):
+        row = self._c.fetchone()
+        if row is None:
+            return None
+        return _Row(self._cols(), row)
+
+    def fetchall(self):
+        cols = self._cols()
+        return [_Row(cols, r) for r in self._c.fetchall()]
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+    def close(self):
+        try:
+            self._c.close()
+        except Exception:
+            pass
+
+
+class _Connection:
+    """Wraps a libsql connection so cursors yield dict-like rows."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def cursor(self):
+        return _Cursor(self._conn.cursor())
+
+    def execute(self, sql, params=None):
+        cur = self.cursor()
+        cur.execute(sql, params)
+        return cur
+
+    def commit(self):
+        return self._conn.commit()
+
+    def close(self):
+        return self._conn.close()
+
+    def __getattr__(self, name):
+        # Forward anything else (e.g. rollback) to the real connection.
+        return getattr(self._conn, name)
+
+
 def get_db_connection(db_path: str = None):
     """
     Establish a database connection.
 
-    - Turso mode (TURSO_DATABASE_URL set): returns a libsql connection.
-      The libsql client mirrors the sqlite3 DB-API, supports `?` placeholders,
-      key-based row access, and cursor.lastrowid, so callers don't change.
+    - Turso mode (TURSO_DATABASE_URL set): returns a wrapped libsql connection
+      whose rows support name + positional access, matching sqlite3.Row.
     - Local mode: returns a normal sqlite3 connection with Row factory and
       foreign keys enabled.
     """
@@ -41,7 +157,7 @@ def get_db_connection(db_path: str = None):
             database=TURSO_DATABASE_URL,
             auth_token=TURSO_AUTH_TOKEN,
         )
-        return conn
+        return _Connection(conn)
 
     path = db_path or DB_PATH
     conn = sqlite3.connect(path)
@@ -139,8 +255,6 @@ def init_db(db_path: str = None):
 
     # Inline idempotent migrations for existing databases.
     # PRAGMA table_info columns: (cid, name, type, notnull, dflt_value, pk).
-    # The `name` is column index 1 -- use positional access so this works
-    # identically on sqlite3.Row and on libsql rows.
     cursor.execute("PRAGMA table_info(study_topics);")
     columns = [row[1] for row in cursor.fetchall()]
     if "document_id" not in columns:

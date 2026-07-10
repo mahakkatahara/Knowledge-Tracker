@@ -72,9 +72,37 @@ def create_user(conn: sqlite3.Connection, name: str, email: str, password_plain:
         (name.strip(), email_clean, password_hash)
     )
     conn.commit()
-    
-    # Retrieve and return the created user
-    cursor.execute("SELECT id, name, email, password_hash, created_at FROM users WHERE id = ?", (cursor.lastrowid,))
+
+    # Re-fetch by unique email (avoids relying on cursor.lastrowid, which is
+    # not reliable on libsql/Turso).
+    cursor.execute("SELECT id, name, email, password_hash, created_at FROM users WHERE email = ?", (email_clean,))
+    row = cursor.fetchone()
+    return DBUser.from_row(row)
+
+
+def get_or_create_oauth_user(conn: sqlite3.Connection, name: str, email: str) -> DBUser:
+    """
+    Finds a user by email, or creates one for OAuth (Google) sign-in.
+    OAuth users are stored with a non-verifiable password marker,
+    so password login can never succeed for these accounts
+    (verify_password fails because 'oauth' is not valid hex).
+    """
+    email_clean = email.lower().strip()
+
+    existing = get_user_by_email(conn, email_clean)
+    if existing is not None:
+        return existing
+
+    display_name = (name or email_clean.split("@")[0]).strip()
+
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+        (display_name, email_clean, "oauth:google")
+    )
+    conn.commit()
+
+    cursor.execute("SELECT id, name, email, password_hash, created_at FROM users WHERE email = ?", (email_clean,))
     row = cursor.fetchone()
     return DBUser.from_row(row)
 
