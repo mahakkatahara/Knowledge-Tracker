@@ -1,7 +1,9 @@
 import { useState, useContext, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Brain, Sparkles, Loader, CheckCircle2, XCircle, AlertTriangle, TrendingUp, RotateCcw, PlayCircle, Info, ChevronLeft, ChevronRight, Flag, Lightbulb } from "lucide-react";
-import useLocalStorage from "../hooks/useLocalStorage";
+import useServerCollection from "../hooks/useServerCollection";
+import { topicsApi } from "../api/topics";
+import { quizHistoryApi } from "../api/quizHistory";
 import { INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
@@ -15,8 +17,9 @@ const STAGE = { SETUP: "setup", LOADING: "loading", QUIZ: "quiz", RESULT: "resul
 const Quiz = () => {
   const { user } = useContext(AuthContext);
   const uid = user?.email || "guest";
-  const [topics, setTopics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
-  const [history, setHistory] = useLocalStorage(`kt_quiz_history::${uid}`, []);
+  const enabled = !!user?.token;
+  const [topics, setTopics] = useServerCollection(`kt_topics::${uid}`, INITIAL_TOPICS, topicsApi, { enabled });
+  const [history, setHistory] = useServerCollection(`kt_quiz_history::${uid}`, [], quizHistoryApi, { enabled, allowDelete: false });
 
   const [stage, setStage] = useState(STAGE.SETUP);
   const [count, setCount] = useState(5);

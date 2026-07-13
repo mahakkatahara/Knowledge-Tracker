@@ -1,13 +1,16 @@
 import { useState, useRef, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, BookOpen, Star, Award, Clock, Brain, UploadCloud, FileText, Loader, AlertCircle, PlayCircle, Globe, GraduationCap, Sparkles } from "lucide-react";
-import useLocalStorage from "../hooks/useLocalStorage";
+import useServerCollection from "../hooks/useServerCollection";
+import { topicsApi } from "../api/topics";
+import { sessionsApi } from "../api/sessions";
 import { INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
 import { calculateRetention, getForgetRisk } from "../utils/decayEngine";
 import { extractTopicsFromPdf } from "../utils/pdfExtractor";
 import { refineTopics, canRefineWithAi } from "../utils/topicRefiner";
+import { makeSession } from "../utils/sessionLog";
 import { AuthContext } from "../context/AuthContext";
 import { Reveal } from "../components/ui/Reveal";
 import RiskBadge from "../components/ui/RiskBadge";
@@ -17,7 +20,12 @@ import { retentionColor, riskOf } from "../lib/risk";
 const StudyTracker = () => {
   const { user } = useContext(AuthContext);
   const uid = user?.email || "guest";
-  const [topics, setTopics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
+  const enabled = !!user?.token;
+  const [topics, setTopics] = useServerCollection(`kt_topics::${uid}`, INITIAL_TOPICS, topicsApi, { enabled });
+  // Append-only log of real study sessions (date + minutes) — the actual
+  // source of truth for the Dashboard's weekly hours / streak, so revising
+  // a topic doesn't silently re-donate its original duration to today.
+  const [, setSessions] = useServerCollection(`kt_sessions::${uid}`, [], sessionsApi, { enabled, allowDelete: false });
 
   const studyLinks = (title) => {
     const t = encodeURIComponent(title.trim());
@@ -44,6 +52,7 @@ const StudyTracker = () => {
   const [difficulty, setDifficulty] = useState("Medium");
   const [duration, setDuration] = useState("");
   const [confidenceScore, setConfidenceScore] = useState(3);
+  const [quizScore, setQuizScore] = useState("");
 
   const fileInputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -150,6 +159,12 @@ const StudyTracker = () => {
   };
 
   const commitPendingTopics = () => {
+    for (const p of pendingTopics) {
+      if (p.quizScore === "" || isNaN(parseInt(p.quizScore))) {
+        alert("Please enter a quiz score (0–100) for every topic before adding.");
+        return;
+      }
+    }
     const today = new Date().toISOString().split("T")[0];
     const existingKeys = new Set(topics.map((t) => normalizeTitle(t.title)));
     const seen = new Set();
@@ -166,7 +181,7 @@ const StudyTracker = () => {
         lastStudied: today,
         duration: parseInt(p.duration) || 30,
         confidenceScore: parseInt(p.confidenceScore) || 3,
-        quizScore: 0,
+        quizScore: Math.min(100, Math.max(0, parseInt(p.quizScore))),
         revisionCount: 0,
         difficulty: p.difficulty,
         source: "pdf",
@@ -180,6 +195,10 @@ const StudyTracker = () => {
       return;
     }
     setTopics((prev) => [...built, ...prev]);
+    setSessions((prev) => [
+      ...built.map((t) => makeSession(t.id, t.duration, t.lastStudied)),
+      ...prev,
+    ]);
     setPendingTopics([]);
     setPendingFile("");
   };
@@ -191,7 +210,7 @@ const StudyTracker = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!title.trim() || !duration) {
+    if (!title.trim() || !duration || !quizScore) {
       alert("Please fill out all fields before logging.");
       return;
     }
@@ -208,17 +227,19 @@ const StudyTracker = () => {
       lastStudied: new Date().toISOString().split("T")[0],
       duration: parseInt(duration),
       confidenceScore: parseInt(confidenceScore),
-      quizScore: 0,
+      quizScore: Math.min(100, Math.max(0, parseInt(quizScore))),
       revisionCount: 0,
       difficulty,
     };
 
     setTopics([newTopic, ...topics]);
+    setSessions((prev) => [makeSession(newTopic.id, newTopic.duration, newTopic.lastStudied), ...prev]);
 
     setTitle("");
     setDifficulty("Medium");
     setDuration("");
     setConfidenceScore(3);
+    setQuizScore("");
   };
 
   const handleDelete = (id) => {
@@ -227,26 +248,29 @@ const StudyTracker = () => {
     }
   };
 
-  const handleDeleteAll = () => {
-    if (topics.length === 0) return;
-    if (window.confirm(`Delete all ${topics.length} topics? This cannot be undone.`)) {
-      setTopics([]);
-    }
-  };
-
   const incrementRevision = (id) => {
-    setTopics(
-      topics.map((topic) => {
-        if (topic.id === id) {
-          return {
-            ...topic,
-            revisionCount: topic.revisionCount + 1,
-            lastStudied: new Date().toISOString().split("T")[0],
-          };
-        }
-        return topic;
-      })
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return;
+
+    // Ask how long this revision actually took instead of silently
+    // re-attributing the topic's original creation-time duration to today —
+    // that was making the weekly hours chart show inflated/wrong numbers.
+    const input = window.prompt(
+      `How many minutes did you spend revising "${topic.title}" just now?`,
+      "15"
     );
+    if (input === null) return; // cancelled — don't log a phantom session
+    const minutes = Math.max(0, parseInt(input) || 0);
+    const today = new Date().toISOString().split("T")[0];
+
+    setTopics(
+      topics.map((t) =>
+        t.id === id
+          ? { ...t, revisionCount: t.revisionCount + 1, lastStudied: today }
+          : t
+      )
+    );
+    setSessions((prev) => [makeSession(id, minutes, today), ...prev]);
   };
 
   const decrementRevision = (id) => {
@@ -282,8 +306,8 @@ const StudyTracker = () => {
             <Card title="Upload PDF — auto-extract topics">
               <p className="mb-4 text-sm leading-relaxed text-muted">
                 Drop your study notes as a PDF. The app reads the whole document and pulls
-                out the key topics — they're added straight to your tracker, and the
-                forget-risk is computed for you.
+                out the key topics — you enter quiz score & confidence, and the forget-risk
+                is computed for you.
               </p>
 
               <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -367,8 +391,8 @@ const StudyTracker = () => {
                             <Sparkles size={10} /> AI-verified
                           </span>
                         ) : null}
-                        . Review the titles and add them — the app computes the forget-risk
-                        automatically. Take a quiz later to score them.
+                        . Enter your quiz score & confidence — the app computes the forget-risk
+                        automatically.
                       </span>
                     </div>
 
@@ -383,13 +407,14 @@ const StudyTracker = () => {
                               onChange={(e) => updatePending(p.id, "title", e.target.value)}
                             />
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <select value={p.difficulty} onChange={(e) => updatePending(p.id, "difficulty", e.target.value)} className={fieldCls} title="Difficulty">
                               <option value="Easy">Easy</option>
                               <option value="Medium">Medium</option>
                               <option value="Hard">Hard</option>
                             </select>
                             <input type="number" min="1" placeholder="Min" value={p.duration} onChange={(e) => updatePending(p.id, "duration", e.target.value)} className={fieldCls} title="Minutes studied" />
+                            <input type="number" min="0" max="100" placeholder="Quiz %" value={p.quizScore} onChange={(e) => updatePending(p.id, "quizScore", e.target.value)} className={fieldCls} title="Quiz score" />
                             <select value={p.confidenceScore} onChange={(e) => updatePending(p.id, "confidenceScore", e.target.value)} className={fieldCls} title="Confidence (1–5)">
                               <option value="1">Conf 1</option>
                               <option value="2">Conf 2</option>
@@ -436,15 +461,21 @@ const StudyTracker = () => {
                     <input id="duration" type="number" placeholder="e.g., 60" value={duration} onChange={(e) => setDuration(e.target.value)} min="1" required className={fieldCls} />
                   </div>
                 </div>
-                <div>
-                  <label htmlFor="confidence" className={labelCls}>Confidence (1-5)</label>
-                  <select id="confidence" value={confidenceScore} onChange={(e) => setConfidenceScore(parseInt(e.target.value))} className={fieldCls}>
-                    <option value="1">1 - Very Low</option>
-                    <option value="2">2 - Low</option>
-                    <option value="3">3 - Medium</option>
-                    <option value="4">4 - High</option>
-                    <option value="5">5 - Excellent</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="confidence" className={labelCls}>Confidence (1-5)</label>
+                    <select id="confidence" value={confidenceScore} onChange={(e) => setConfidenceScore(parseInt(e.target.value))} className={fieldCls}>
+                      <option value="1">1 - Very Low</option>
+                      <option value="2">2 - Low</option>
+                      <option value="3">3 - Medium</option>
+                      <option value="4">4 - High</option>
+                      <option value="5">5 - Excellent</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="quiz" className={labelCls}>Quiz score (%)</label>
+                    <input id="quiz" type="number" placeholder="e.g., 85" value={quizScore} onChange={(e) => setQuizScore(e.target.value)} min="0" max="100" required className={fieldCls} />
+                  </div>
                 </div>
                 <Button type="submit" variant="primary" className="mt-1 w-full">
                   <Plus size={16} /> Log activity
@@ -457,20 +488,7 @@ const StudyTracker = () => {
         {/* ── Right: catalog ── */}
         <div className="flex flex-col gap-6">
           <Reveal>
-            <Card
-              title="Active learning catalog"
-              actions={
-                topics.length > 0 ? (
-                  <button
-                    onClick={handleDeleteAll}
-                    title="Delete all topics"
-                    className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-faint transition hover:border-lost/40 hover:bg-lost/10 hover:text-lost"
-                  >
-                    <Trash2 size={13} /> Delete all
-                  </button>
-                ) : null
-              }
-            >
+            <Card title="Active learning catalog">
             {topics.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
                 <span className="grid h-16 w-16 place-items-center rounded-2xl border border-line bg-surface-2">

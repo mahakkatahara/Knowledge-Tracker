@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 function readValue(key, initialValue) {
   try {
@@ -18,13 +18,14 @@ function readValue(key, initialValue) {
  */
 export default function useLocalStorage(key, initialValue) {
   const [storedValue, setStoredValue] = useState(() => readValue(key, initialValue));
-  const keyRef = useRef(key);
 
   // Key changed since last render -> re-read the new key's value synchronously.
   // (setState during render makes React restart with the fresh value before
   //  the write-effect below runs, so we never write the old value to the new key.)
-  if (keyRef.current !== key) {
-    keyRef.current = key;
+  // Tracked via state (not a ref) so it's safe to read/adjust during render.
+  const [prevKey, setPrevKey] = useState(key);
+  if (prevKey !== key) {
+    setPrevKey(key);
     setStoredValue(readValue(key, initialValue));
   }
 

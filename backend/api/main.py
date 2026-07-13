@@ -12,6 +12,8 @@ from backend.api.routes.risk import router as risk_router
 from backend.api.routes.recommendations import router as recommendations_router
 from backend.api.routes.documents import router as documents_router
 from backend.api.routes.topics import router as topics_router
+from backend.api.routes.sessions import router as sessions_router
+from backend.api.routes.quiz_history import router as quiz_history_router
 from backend.api.routes.adaptive_revision import router as revision_router
 
 app = FastAPI(
@@ -43,6 +45,8 @@ app.include_router(notes_router, prefix="/api", tags=["Notes"])
 app.include_router(search_router, prefix="/api", tags=["Search"])
 app.include_router(documents_router, prefix="/api", tags=["Documents"])
 app.include_router(topics_router, prefix="/api", tags=["Topics"])
+app.include_router(sessions_router, prefix="/api", tags=["Sessions"])
+app.include_router(quiz_history_router, prefix="/api", tags=["Quiz History"])
 app.include_router(revision_router, prefix="/api", tags=["Adaptive Revision"])
 app.include_router(ml_router, prefix="/api", tags=["ML"])
 

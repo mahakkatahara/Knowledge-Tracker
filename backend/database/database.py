@@ -266,5 +266,45 @@ def init_db(db_path: str = None):
     CREATE INDEX IF NOT EXISTS idx_study_topics_user_id ON study_topics (user_id);
     """)
 
+    # Per-session study log (source of truth for weekly hours + streak on the
+    # dashboard). topic_id is intentionally NOT a hard foreign key so a session
+    # can outlive the topic it came from (and so imported/guest ids never break
+    # an insert).
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS study_sessions (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        topic_id TEXT,
+        date TEXT NOT NULL,
+        minutes INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_study_sessions_user_id ON study_sessions (user_id);
+    """)
+
+    # History of completed quizzes (powers "Quizzes taken" + last-attempt stats).
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS quiz_history (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        mode TEXT,
+        difficulty TEXT,
+        score INTEGER NOT NULL DEFAULT 0,
+        total INTEGER NOT NULL DEFAULT 0,
+        correct INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    """)
+
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_quiz_history_user_id ON quiz_history (user_id);
+    """)
+
     conn.commit()
     conn.close()

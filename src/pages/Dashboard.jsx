@@ -2,12 +2,15 @@ import { useContext } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Brain, Flame, AlertTriangle, Clock, Calendar, Award, TrendingUp, BookOpen, FileText, ArrowUpRight } from "lucide-react";
-import useLocalStorage from "../hooks/useLocalStorage";
+import useServerCollection from "../hooks/useServerCollection";
+import { topicsApi } from "../api/topics";
+import { sessionsApi } from "../api/sessions";
+import { quizHistoryApi } from "../api/quizHistory";
 import { INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
-import { getRevisionRecommendations, localTodayISO } from "../utils/decayEngine";
-import { withDerivedSessions, weeklyStats, computeStreak } from "../utils/sessionLog";
+import { getRevisionRecommendations, REFERENCE_DATE } from "../utils/decayEngine";
+import { withDerivedSessions, weeklyStats, computeStreak as computeStreakFromSessions } from "../utils/sessionLog";
 import { AuthContext } from "../context/AuthContext";
 import { Reveal, Stagger, StaggerItem } from "../components/ui/Reveal";
 import NumberTicker from "../components/ui/NumberTicker";
@@ -16,16 +19,13 @@ import RiskBadge from "../components/ui/RiskBadge";
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
   const uid = user?.email || "guest";
-  const [topics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
-  const [quizHistory] = useLocalStorage(`kt_quiz_history::${uid}`, []);
-  const [sessions] = useLocalStorage(`kt_sessions::${uid}`, []);
+  const enabled = !!user?.token;
+  const [topics] = useServerCollection(`kt_topics::${uid}`, INITIAL_TOPICS, topicsApi, { enabled });
+  const [quizHistory] = useServerCollection(`kt_quiz_history::${uid}`, [], quizHistoryApi, { enabled, allowDelete: false });
+  const [sessions] = useServerCollection(`kt_sessions::${uid}`, [], sessionsApi, { enabled, allowDelete: false });
 
-  // A single, live "today" (local) used for every date calculation on this page,
-  // so "days ago", streak and the weekly chart never drift out of sync.
-  const today = localTodayISO();
-
-  // ── business logic ─────────────────────────────────────────
-  const annotatedTopics = getRevisionRecommendations(topics, today);
+  // ── business logic (unchanged) ─────────────────────────────a
+  const annotatedTopics = getRevisionRecommendations(topics);
 
   const highRiskTopics = annotatedTopics.filter((t) => t.risk === "High");
   const highRiskCount = highRiskTopics.length;
@@ -39,14 +39,15 @@ const Dashboard = () => {
 
   const topicDivisor = Math.max(1, topics.length);
 
-  // Real study time & streak come from the append-only session log — one record
-  // per actual study/revision/quiz event — NOT from re-bucketing each topic's
-  // single static `duration`. `withDerivedSessions` backfills a session for any
-  // older topic that predates the log, so nothing silently disappears.
+  // Real per-session log is the source of truth for hours/streak. Topics
+  // logged before the session log existed (or that never got a session for
+  // some other reason) are backfilled once from their lastStudied/duration
+  // so old data still shows up — but every revision from now on logs its
+  // own separately-timed session instead of re-donating stale duration.
   const allSessions = withDerivedSessions(sessions, topics);
-  const { weekHours: studyTimeHours, barData, todayLabel } = weeklyStats(allSessions, today);
-  const streak = computeStreak(allSessions, today);
+  const { weekHours: studyTimeHours, barData, todayLabel } = weeklyStats(allSessions);
   const maxHours = Math.max(5, ...barData.map((b) => b.hours));
+  const streak = computeStreakFromSessions(allSessions);
   // ───────────────────────────────────────────────────────────
 
   const metrics = [
@@ -95,7 +96,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-2 rounded-full border border-line glass px-4 py-2 text-sm text-muted">
           <Calendar size={15} className="text-signal" />
           <span className="mono text-xs">
-            {new Date(today + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            {new Date(REFERENCE_DATE + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           </span>
         </div>
       </Reveal>

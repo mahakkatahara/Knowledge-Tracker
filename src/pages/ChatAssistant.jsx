@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useContext } from "react";
 import { motion } from "framer-motion";
 import { Send, Bot, User, HelpCircle, Sparkles, Trash2 } from "lucide-react";
 import useLocalStorage from "../hooks/useLocalStorage";
+import useServerCollection from "../hooks/useServerCollection";
+import { topicsApi } from "../api/topics";
 import { CHAT_BOT_ANSWERS, INITIAL_TOPICS } from "../utils/mockData";
 import Card from "../components/Card";
 import Button from "../components/Button";
@@ -28,7 +30,8 @@ const GENERIC_CHAT_WORDS = new Set([
 const ChatAssistant = () => {
   const { user } = useContext(AuthContext);
   const uid = user?.email || "guest";
-  const [topics] = useLocalStorage(`kt_topics::${uid}`, INITIAL_TOPICS);
+  const enabled = !!user?.token;
+  const [topics] = useServerCollection(`kt_topics::${uid}`, INITIAL_TOPICS, topicsApi, { enabled });
   const [messages, setMessages] = useLocalStorage(`chat-messages::${uid}`, [
     {
       id: "welcome",

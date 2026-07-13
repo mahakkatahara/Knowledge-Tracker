@@ -305,3 +305,98 @@ class DBStudyTopic:
 
 
 
+
+
+class DBStudySession:
+    def __init__(
+        self,
+        id: str,
+        user_id: int,
+        topic_id: Optional[str],
+        date: str,
+        minutes: int,
+        created_at: Optional[str] = None
+    ):
+        self.id = id
+        self.user_id = user_id
+        self.topic_id = topic_id
+        self.date = date
+        self.minutes = minutes
+        self.created_at = created_at or datetime.utcnow().isoformat()
+
+    @classmethod
+    def from_row(cls, row: Any) -> Optional['DBStudySession']:
+        if not row:
+            return None
+        return cls(
+            id=row["id"],
+            user_id=row["user_id"],
+            topic_id=row["topic_id"],
+            date=row["date"],
+            minutes=row["minutes"],
+            created_at=row["created_at"]
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """camelCase keys for the frontend session-log shape."""
+        return {
+            "id": self.id,
+            "userId": self.user_id,
+            "topicId": self.topic_id,
+            "date": self.date,
+            "minutes": self.minutes,
+            "createdAt": self.created_at
+        }
+
+
+class DBQuizAttempt:
+    def __init__(
+        self,
+        id: str,
+        user_id: int,
+        date: str,
+        mode: Optional[str],
+        difficulty: Optional[str],
+        score: int,
+        total: int,
+        correct: int,
+        created_at: Optional[str] = None
+    ):
+        self.id = id
+        self.user_id = user_id
+        self.date = date
+        self.mode = mode
+        self.difficulty = difficulty
+        self.score = score
+        self.total = total
+        self.correct = correct
+        self.created_at = created_at or datetime.utcnow().isoformat()
+
+    @classmethod
+    def from_row(cls, row: Any) -> Optional['DBQuizAttempt']:
+        if not row:
+            return None
+        return cls(
+            id=row["id"],
+            user_id=row["user_id"],
+            date=row["date"],
+            mode=row["mode"],
+            difficulty=row["difficulty"],
+            score=row["score"],
+            total=row["total"],
+            correct=row["correct"],
+            created_at=row["created_at"]
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "userId": self.user_id,
+            "date": self.date,
+            "mode": self.mode,
+            "difficulty": self.difficulty,
+            "score": self.score,
+            "total": self.total,
+            "correct": self.correct,
+            "createdAt": self.created_at
+        }
