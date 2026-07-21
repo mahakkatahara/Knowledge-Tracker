@@ -1,4 +1,7 @@
-import React, { createContext, useState } from "react";
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useState, useEffect } from "react";
+import { setCachedGeminiKey } from "../utils/quizEngine";
+import { API_BASE } from "../api/client";
 
 export const AuthContext = createContext(null);
 
@@ -11,6 +14,33 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
   });
+
+  const [geminiKey, setGeminiKey] = useState("");
+
+  useEffect(() => {
+    if (user && user.token) {
+      // Fetch key from backend
+      fetch(`${API_BASE}/topics/gemini-key`, {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to fetch key");
+          return res.json();
+        })
+        .then((data) => {
+          if (data && data.key) {
+            setCachedGeminiKey(data.key);
+            Promise.resolve().then(() => setGeminiKey(data.key));
+          }
+        })
+        .catch((err) => console.error("Error fetching Gemini key:", err));
+    } else {
+      setCachedGeminiKey("");
+      Promise.resolve().then(() => setGeminiKey(""));
+    }
+  }, [user]);
 
   const login = (userData, token) => {
     const data = { ...userData, token };
@@ -25,7 +55,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading: false }}>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, loading: false, geminiKey }}>
       {children}
     </AuthContext.Provider>
   );

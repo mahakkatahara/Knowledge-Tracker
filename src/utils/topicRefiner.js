@@ -49,23 +49,20 @@ function buildPrompt(candidateTitles, contextText, count) {
     .join("\n");
 
   return (
-    `You are helping a student build a revision tracker from their study notes.\n` +
-    `Below is text extracted from their document, followed by a list of candidate ` +
-    `"topics" produced by a naive keyword extractor.\n\n` +
-    `Your job: return the REAL study topics only.\n\n` +
-    `A real topic is a concept, term, disease, procedure, or named entity a student ` +
-    `would revise as one unit (e.g. "Placenta Previa", "Breech Delivery", "Bishop Score", ` +
-    `"Postpartum Hemorrhage", "Rh Isoimmunisation").\n\n` +
-    `REJECT things that are NOT topics:\n` +
-    `- full sentences or instructions ("Start Antihypertensives", "Deliver at 37 weeks")\n` +
-    `- table rows / fragments ("Consistency of Cervix Firm Average Soft")\n` +
-    `- lists of options mashed together, or half-phrases cut mid-idea\n` +
-    `- generic umbrella words that are just the document's subject\n\n` +
-    `You may FIX wording (proper casing, expand obvious abbreviations, trim junk) and ` +
-    `ADD clearly important topics that appear in the text but are missing from the list. ` +
-    `Prefer the candidate list, but you are not limited to it.\n\n` +
-    `Return AT MOST ${count} topics, most important first.\n` +
-    `Return ONLY a JSON array of strings, no markdown, no commentary. Example: ` +
+    `You are an expert educational AI. Your job is to extract and verify REAL-WORLD study topics from the student's document.\n` +
+    `Below is text extracted from the document, followed by a list of candidate "topics" produced by a naive keyword extractor.\n\n` +
+    `CRITICAL REQUIREMENT:\n` +
+    `Every topic you return MUST be a genuine, real-world educational concept, term, disease, algorithm, theory, procedure, standard named entity, or academic topic (e.g., "Placenta Previa", "Breech Delivery", "Bishop Score", "Binary Search Tree", "Photosynthesis").\n\n` +
+    `You MUST verify and check each candidate topic against real-world knowledge. Ask yourself: "Is this a real-world topic/concept that a student would find in a textbook, syllabus, or encyclopedia?" If it is just a local note, a partial phrase, or a specific instruction, REJECT IT.\n\n` +
+    `STRICTLY REJECT AND FILTER OUT:\n` +
+    `- Action instructions or tasks ("Start Antihypertensives", "Deliver at 37 weeks", "Check blood pressure", "Rotate the patient")\n` +
+    `- Full sentences, questions, or statements ("What is a node", "Consistency of Cervix is average", "Trees are hierarchical")\n` +
+    `- Incomplete phrases, table cells, or raw fragments ("Consistency of Cervix Firm", "Page 2 lines", "Fig 1.2", "High risk because of")\n` +
+    `- Generic words or noisy text that do not represent a distinct, studyable academic topic.\n\n` +
+    `You may FIX wording (correct casing, expand abbreviations into full standard terms, e.g. "PPH" -> "Postpartum Hemorrhage") to make them proper real-world study topics, and you can ADD highly important real-world concepts from the document text if the naive extractor missed them.\n\n` +
+    `Return AT MOST ${count} topics, ordered by relevance and importance, as a clean JSON array of strings.\n` +
+    `Do NOT include any markdown formatting, code blocks, or conversational text. Return ONLY the JSON array.\n\n` +
+    `Example output:\n` +
     `["Placenta Previa", "Breech Delivery", "Bishop Score"]\n\n` +
     `--- DOCUMENT TEXT ---\n${context}\n\n` +
     `--- CANDIDATE TOPICS ---\n${list}\n`

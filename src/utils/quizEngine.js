@@ -32,9 +32,15 @@ const isRetryable = (status, msg = "") => {
   return m.includes("overload") || m.includes("high demand") || m.includes("unavailable") || m.includes("try again");
 };
 
+let cachedGeminiKey = "";
+
+export const setCachedGeminiKey = (key) => {
+  cachedGeminiKey = key || "";
+};
+
 // Read the key from Vite env (VITE_GEMINI_API_KEY). Empty string => no key.
 export const getGeminiKey = () =>
-  (import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) || "";
+  (import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) || cachedGeminiKey || "";
 
 export const hasAiKey = () => getGeminiKey().trim().length > 0;
 

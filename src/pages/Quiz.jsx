@@ -9,13 +9,13 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import { AuthContext } from "../context/AuthContext";
 import { calculateRetention, getForgetRisk } from "../utils/decayEngine";
-import { buildQuiz, gradeQuiz, applyQuizResults, hasAiKey, callGeminiText } from "../utils/quizEngine";
+import { buildQuiz, gradeQuiz, applyQuizResults, callGeminiText } from "../utils/quizEngine";
 import { Reveal } from "../components/ui/Reveal";
 
 const STAGE = { SETUP: "setup", LOADING: "loading", QUIZ: "quiz", RESULT: "result" };
 
 const Quiz = () => {
-  const { user } = useContext(AuthContext);
+  const { user, geminiKey } = useContext(AuthContext);
   const uid = user?.email || "guest";
   const enabled = !!user?.token;
   const [topics, setTopics] = useServerCollection(`kt_topics::${uid}`, INITIAL_TOPICS, topicsApi, { enabled });
@@ -35,7 +35,7 @@ const Quiz = () => {
   const [moved, setMoved] = useState([]);
   const [explains, setExplains] = useState({});   // { [qId]: { loading, text, error } }
 
-  const aiOn = useMemo(() => hasAiKey(), []);
+  const aiOn = useMemo(() => geminiKey.trim().length > 0, [geminiKey]);
 
   const startQuiz = async () => {
     if (topics.length === 0) return;

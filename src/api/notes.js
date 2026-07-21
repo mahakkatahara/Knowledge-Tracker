@@ -26,7 +26,7 @@ const getAuthHeaders = () => {
 const jsonParseSafe = (str) => {
   try {
     return JSON.parse(str);
-  } catch (e) {
+  } catch {
     return null;
   }
 };

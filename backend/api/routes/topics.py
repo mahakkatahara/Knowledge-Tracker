@@ -55,6 +55,17 @@ def create_new_topic(
     )
     return topic.to_dict()
 
+@router.get("/gemini-key")
+def get_gemini_key(
+    current_user: DBUser = Depends(get_current_user)
+):
+    """
+    Retrieve the Gemini API key from environment variables.
+    """
+    import os
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("VITE_GEMINI_API_KEY") or ""
+    return {"key": key}
+
 @router.put("/{topic_id}", response_model=TopicRecord)
 def update_existing_topic(
     topic_id: str,
