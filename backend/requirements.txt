@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu
 pytest>=7.0.0
 fastapi
 uvicorn[standard]
